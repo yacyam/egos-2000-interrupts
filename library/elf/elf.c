@@ -16,11 +16,12 @@
 #include <string.h>
 
 static void load_grass(elf_reader reader,
-                       struct elf32_program_header* pheader) {
+                       struct elf32_program_header *pheader)
+{
     INFO("Grass kernel file size: 0x%.8x bytes", pheader->p_filesz);
     INFO("Grass kernel memory size: 0x%.8x bytes", pheader->p_memsz);
 
-    char* entry = (char*)GRASS_ENTRY;
+    char *entry = (char *)GRASS_ENTRY;
     int block_offset = pheader->p_offset / BLOCK_SIZE;
     for (int off = 0; off < pheader->p_filesz; off += BLOCK_SIZE)
         reader(block_offset++, entry + off);
@@ -29,48 +30,54 @@ static void load_grass(elf_reader reader,
 }
 
 static void load_app(int pid, elf_reader reader,
-                     int argc, void** argv,
-                     struct elf32_program_header* pheader) {
+                     int argc, void **argv,
+                     struct elf32_program_header *pheader)
+{
 
     /* Debug printing during bootup */
-    if (pid < GPID_USER_START) {
+    if (pid < GPID_USER_START)
+    {
         INFO("App file size: 0x%.8x bytes", pheader->p_filesz);
         INFO("App memory size: 0x%.8x bytes", pheader->p_memsz);
     }
 
-    void* base;
+    void *base;
     int frame_no, block_offset = pheader->p_offset / BLOCK_SIZE;
     unsigned int code_start = APPS_ENTRY >> 12, stack_start = APPS_ARG >> 12;
 
     /* Setup the text, rodata, data and bss sections */
-    for (int off = 0; off < pheader->p_filesz; off += BLOCK_SIZE) {
-        if (off % PAGE_SIZE == 0) {
+    for (int off = 0; off < pheader->p_filesz; off += BLOCK_SIZE)
+    {
+        if (off % PAGE_SIZE == 0)
+        {
             earth->mmu_alloc(&frame_no, &base);
             earth->mmu_map(pid, code_start++, frame_no);
         }
-        reader(block_offset++, (char*)base + (off % PAGE_SIZE));
+        reader(block_offset++, (char *)base + (off % PAGE_SIZE));
     }
     int last_page_filled = pheader->p_filesz % PAGE_SIZE;
     int last_page_nzeros = PAGE_SIZE - last_page_filled;
     if (last_page_filled)
-        memset((char*)base + last_page_filled, 0, last_page_nzeros);
+        memset((char *)base + last_page_filled, 0, last_page_nzeros);
 
-    while (code_start < ((APPS_ENTRY + APPS_SIZE) >> 12)) {
+    while (code_start < ((APPS_ENTRY + APPS_SIZE) >> 12))
+    {
         earth->mmu_alloc(&frame_no, &base);
         earth->mmu_map(pid, code_start++, frame_no);
-        memset((char*)base, 0, PAGE_SIZE);
+        memset((char *)base, 0, PAGE_SIZE);
     }
 
     /* Setup two pages for argc, argv and stack */
     earth->mmu_alloc(&frame_no, &base);
     earth->mmu_map(pid, stack_start++, frame_no);
 
-    int* argc_addr = (int*)base;
-    int* argv_addr = argc_addr + 1;
-    int* args_addr = argv_addr + CMD_NARGS;
+    int *argc_addr = (int *)base;
+    int *argv_addr = argc_addr + 1;
+    int *args_addr = argv_addr + CMD_NARGS;
 
     *argc_addr = argc;
-    if (argv) memcpy(args_addr, argv, argc * CMD_ARG_LEN);
+    if (argv)
+        memcpy(args_addr, argv, argc * CMD_ARG_LEN);
     for (int i = 0; i < argc; i++)
         argv_addr[i] = APPS_ARG + 4 + 4 * CMD_NARGS + i * CMD_ARG_LEN;
 
@@ -78,21 +85,23 @@ static void load_app(int pid, elf_reader reader,
     earth->mmu_map(pid, stack_start++, frame_no);
 }
 
-void elf_load(int pid, elf_reader reader, int argc, void** argv) {
+void elf_load(int pid, elf_reader reader, int argc, void **argv)
+{
     char buf[BLOCK_SIZE];
     reader(0, buf);
 
-    struct elf32_header *header = (void*) buf;
-    struct elf32_program_header *pheader = (void*)(buf + header->e_phoff);
+    struct elf32_header *header = (void *)buf;
+    struct elf32_program_header *pheader = (void *)(buf + header->e_phoff);
 
-    for (int i = 0; i < header->e_phnum; i++) {
-        if (pheader[i].p_memsz == 0) continue;
+    for (int i = 0; i < header->e_phnum; i++)
+    {
+        if (pheader[i].p_memsz == 0)
+            continue;
         else if (pheader[i].p_vaddr == GRASS_ENTRY)
             load_grass(reader, &pheader[i]);
         else if (pheader[i].p_vaddr == APPS_ENTRY)
             load_app(pid, reader, argc, argv, &pheader[i]);
-        else FATAL("elf_load: Invalid p_vaddr: 0x%.8x", pheader->p_vaddr);
+        else
+            FATAL("elf_load: Invalid p_vaddr: 0x%.8x", pheader->p_vaddr);
     }
 }
-
-
