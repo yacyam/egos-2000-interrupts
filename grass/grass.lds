@@ -4,7 +4,7 @@ ENTRY(grass_entry)
 
 MEMORY
 {
-    ram (arw!xi) : ORIGIN = 0x08002800, LENGTH = 0x2800
+    ram (arw!xi) : ORIGIN = 0x08002800, LENGTH = 0x3800
 }
 
 PHDRS
@@ -43,5 +43,5 @@ SECTIONS
           PROVIDE( __heap_start = . );
           . = __heap_size;
     } >ram :ram
-    PROVIDE( __heap_end = 0x08005000 );
+    PROVIDE( __heap_end = 0x08006000 );
 }
