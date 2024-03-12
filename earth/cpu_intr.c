@@ -9,6 +9,11 @@
 
 #include "egos.h"
 
+#define PLIC_ENABLE_BASE 0x0C002000UL
+#define PLIC_PRIORITY_BASE 0x0C000000UL
+#define PLIC_PENDING_BASE 0x0C001000UL
+#define PLIC_UART0_ID 3UL
+
 /* These are two static variables storing
  * the addresses of the handler functions;
  * Initially, both variables are NULL */
@@ -53,7 +58,12 @@ void intr_init()
     /* Enable the machine-mode timer and software interrupts */
     int mstatus, mie;
     asm("csrr %0, mie" : "=r"(mie));
-    asm("csrw mie, %0" ::"r"(mie | 0x88));
+    asm("csrw mie, %0" ::"r"(mie | 0x888));
     asm("csrr %0, mstatus" : "=r"(mstatus));
     asm("csrw mstatus, %0" ::"r"(mstatus | 0x88));
+
+    /* Enable External Interrupts on PLIC */
+    REGW(PLIC_ENABLE_BASE, 0) |= (1 << PLIC_UART0_ID);
+    REGW(PLIC_PRIORITY_BASE, 4 * PLIC_UART0_ID) |= 1; // Set UART0 Priority to 1
+    REGW(PLIC_PENDING_BASE, 0) = 0;                   // Reset Pending Interrupts
 }
