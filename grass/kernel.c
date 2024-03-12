@@ -10,16 +10,16 @@
  *     proc_syscall() handles system calls for inter-process communication
  */
 
-
 #include "egos.h"
 #include "process.h"
 #include "syscall.h"
 #include <string.h>
 
-#define EXCP_ID_ECALL_U    8
-#define EXCP_ID_ECALL_M    11
+#define EXCP_ID_ECALL_U 8
+#define EXCP_ID_ECALL_M 11
 
-void excp_entry(int id) {
+void excp_entry(int id)
+{
     /* Student's code goes here (system call and memory exception). */
 
     /* If id is for system call, handle the system call and return */
@@ -30,8 +30,8 @@ void excp_entry(int id) {
     FATAL("excp_entry: kernel got exception %d", id);
 }
 
-#define INTR_ID_SOFT       3
-#define INTR_ID_TIMER      7
+#define INTR_ID_SOFT 3
+#define INTR_ID_TIMER 7
 
 static void proc_yield();
 static void proc_syscall();
@@ -40,14 +40,17 @@ static void (*kernel_entry)();
 int proc_curr_idx;
 struct process proc_set[MAX_NPROCESS];
 
-void intr_entry(int id) {
-    if (id == INTR_ID_TIMER && curr_pid < GPID_SHELL) {
+void intr_entry(int id)
+{
+    if (id == INTR_ID_TIMER && curr_pid < GPID_SHELL)
+    {
         /* Do not interrupt kernel processes since IO can be stateful */
         earth->timer_reset();
         return;
     }
 
-    if (earth->tty_recv_intr() && curr_pid >= GPID_USER_START) {
+    if (earth->tty_recv_intr() && curr_pid >= GPID_USER_START)
+    {
         /* User process killed by ctrl+c interrupt */
         INFO("process %d killed by interrupt", curr_pid);
         asm("csrw mepc, %0" ::"r"(0x800500C));
@@ -61,38 +64,46 @@ void intr_entry(int id) {
     else
         FATAL("intr_entry: got unknown interrupt %d", id);
 
-    /* Switch to the kernel stack */
-    ctx_start(&proc_set[proc_curr_idx].sp, (void*)GRASS_STACK_TOP);
+    ctx_entry();
 }
 
-void ctx_entry() {
+void ctx_entry()
+{
     /* Now on the kernel stack */
-    int mepc, tmp;
+    int mepc;
+    void *reg_file;
     asm("csrr %0, mepc" : "=r"(mepc));
-    proc_set[proc_curr_idx].mepc = (void*) mepc;
+    proc_set[proc_curr_idx].mepc = (void *)mepc;
 
     /* kernel_entry() is either proc_yield() or proc_syscall() */
     kernel_entry();
 
     /* Switch back to the user application stack */
     mepc = (int)proc_set[proc_curr_idx].mepc;
+    reg_file = (void *)proc_set[proc_curr_idx].reg_file;
     asm("csrw mepc, %0" ::"r"(mepc));
-    ctx_switch((void**)&tmp, proc_set[proc_curr_idx].sp);
+    asm("csrw mscratch, %0" ::"r"(reg_file));
+    ctx_jump();
 }
 
-static void proc_yield() {
+static void proc_yield()
+{
     /* Find the next runnable process */
     int next_idx = -1;
-    for (int i = 1; i <= MAX_NPROCESS; i++) {
+    for (int i = 1; i <= MAX_NPROCESS; i++)
+    {
         int s = proc_set[(proc_curr_idx + i) % MAX_NPROCESS].status;
-        if (s == PROC_READY || s == PROC_RUNNING || s == PROC_RUNNABLE) {
+        if (s == PROC_READY || s == PROC_RUNNING || s == PROC_RUNNABLE)
+        {
             next_idx = (proc_curr_idx + i) % MAX_NPROCESS;
             break;
         }
     }
 
-    if (next_idx == -1) FATAL("proc_yield: no runnable process");
-    if (curr_status == PROC_RUNNING) proc_set_runnable(curr_pid);
+    if (next_idx == -1)
+        FATAL("proc_yield: no runnable process");
+    if (curr_status == PROC_RUNNING)
+        proc_set_runnable(curr_pid);
 
     /* Switch to the next runnable process and reset timer */
     proc_curr_idx = next_idx;
@@ -108,30 +119,38 @@ static void proc_yield() {
     /* Student's code ends here. */
 
     /* Call the entry point for newly created process */
-    if (curr_status == PROC_READY) {
+    if (curr_status == PROC_READY)
+    {
         proc_set_running(curr_pid);
+        void *reg_file = (void *)proc_set[proc_curr_idx].reg_file;
         /* Prepare argc and argv */
         asm("mv a0, %0" ::"r"(APPS_ARG));
         asm("mv a1, %0" ::"r"(APPS_ARG + 4));
         /* Enter application code entry using mret */
         asm("csrw mepc, %0" ::"r"(APPS_ENTRY));
+        asm("csrw mscratch, %0" ::"r"(reg_file));
         asm("mret");
     }
 
     proc_set_running(curr_pid);
 }
 
-static void proc_send(struct syscall *sc) {
+static void proc_send(struct syscall *sc)
+{
     sc->msg.sender = curr_pid;
     int receiver = sc->msg.receiver;
 
     for (int i = 0; i < MAX_NPROCESS; i++)
-        if (proc_set[i].pid == receiver) {
+        if (proc_set[i].pid == receiver)
+        {
             /* Find the receiver */
-            if (proc_set[i].status != PROC_WAIT_TO_RECV) {
+            if (proc_set[i].status != PROC_WAIT_TO_RECV)
+            {
                 curr_status = PROC_WAIT_TO_SEND;
                 proc_set[proc_curr_idx].receiver_pid = receiver;
-            } else {
+            }
+            else
+            {
                 /* Copy message from sender to kernel stack */
                 struct sys_msg tmp;
                 earth->mmu_switch(curr_pid);
@@ -151,16 +170,20 @@ static void proc_send(struct syscall *sc) {
     sc->retval = -1;
 }
 
-static void proc_recv(struct syscall *sc) {
+static void proc_recv(struct syscall *sc)
+{
     int sender = -1;
     for (int i = 0; i < MAX_NPROCESS; i++)
         if (proc_set[i].status == PROC_WAIT_TO_SEND &&
             proc_set[i].receiver_pid == curr_pid)
             sender = proc_set[i].pid;
 
-    if (sender == -1) {
+    if (sender == -1)
+    {
         curr_status = PROC_WAIT_TO_RECV;
-    } else {
+    }
+    else
+    {
         /* Copy message from sender to kernel stack */
         struct sys_msg tmp;
         earth->mmu_switch(sender);
@@ -177,15 +200,17 @@ static void proc_recv(struct syscall *sc) {
     proc_yield();
 }
 
-static void proc_syscall() {
-    struct syscall *sc = (struct syscall*)SYSCALL_ARG;
+static void proc_syscall()
+{
+    struct syscall *sc = (struct syscall *)SYSCALL_ARG;
 
     int type = sc->type;
     sc->retval = 0;
     sc->type = SYS_UNUSED;
-    *((int*)0x2000000) = 0;
+    *((int *)0x2000000) = 0;
 
-    switch (type) {
+    switch (type)
+    {
     case SYS_RECV:
         proc_recv(sc);
         break;

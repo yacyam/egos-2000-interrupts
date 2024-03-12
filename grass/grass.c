@@ -44,6 +44,10 @@ int main()
     proc_set_running(proc_alloc());
     earth->mmu_switch(GPID_PROCESS);
 
+    /* Write reg_file Pointer into MScratch */
+    void *reg_file = (void *)proc_set[proc_curr_idx].reg_file;
+    asm("csrw mscratch, %0" ::"r"(reg_file));
+
     /* Jump to the entry of process GPID_PROCESS */
     asm("mv a0, %0" ::"r"(APPS_ARG));
     asm("jr %0" ::"r"(APPS_ENTRY));
