@@ -10,9 +10,18 @@
  */
 
 #define LIBC_STDIO
+#define TTY_BUFF_SIZE 1
 #include "egos.h"
 #include <stdio.h>
 #include <stdarg.h>
+
+struct tty_buff
+{
+    char buf[TTY_BUFF_SIZE];
+    int size;
+};
+
+struct tty_buff tty_read_buf;
 
 int uart_getc(int *c);
 void uart_putc(int c);
@@ -21,17 +30,38 @@ void uart_init(long baud_rate);
 static int c, is_reading;
 int tty_recv_intr() { return (is_reading) ? 0 : (uart_getc(&c) == 3); }
 
+void tty_buff_init()
+{
+    tty_read_buf.buf[0] = 0;
+    tty_read_buf.size = 0;
+}
+
 int tty_write(char *buf, int len)
 {
     for (int i = 0; i < len; i++)
         uart_putc(buf[i]);
 }
 
+int tty_read_uart()
+{
+    uart_getc(&c);
+    if (c == -1)
+        return -1;
+
+    tty_read_buf.buf[0] = (char)c;
+    tty_read_buf.size++;
+    return 0;
+}
+
 int tty_read(char *ret_val)
 {
-    for (c = -1; c == -1; uart_getc(&c))
-        ;
-    *ret_val = (char)c;
+    if (tty_read_buf.size == 0)
+        return -1;
+
+    *ret_val = (char)tty_read_buf.buf[0];
+
+    tty_read_buf.buf[0] = 0;
+    tty_read_buf.size--;
     return 0;
 }
 
@@ -108,6 +138,8 @@ void tty_init()
     /* Wait for the tty device to be ready */
     for (int c = 0; c != -1; uart_getc(&c))
         ;
+
+    tty_buff_init();
 
     earth->tty_read = tty_read;
     earth->tty_read_initial = tty_read_initial;

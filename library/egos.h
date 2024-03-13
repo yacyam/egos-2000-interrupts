@@ -7,6 +7,7 @@ struct earth
 
     int (*intr_register)(void (*handler)(int));
     int (*excp_register)(void (*handler)(int));
+    int (*trap_external)();
 
     int (*mmu_alloc)(int *frame_no, void **cached_addr);
     int (*mmu_free)(int pid);

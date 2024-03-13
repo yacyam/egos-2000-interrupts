@@ -32,10 +32,14 @@ void excp_entry(int id)
 
 #define INTR_ID_SOFT 3
 #define INTR_ID_TIMER 7
+#define INTR_ID_EXTERNAL 11
 
 static void proc_yield();
 static void proc_syscall();
+static void proc_external();
 static void (*kernel_entry)();
+
+static int proc_tty(struct syscall *sc);
 
 int proc_curr_idx;
 struct process proc_set[MAX_NPROCESS];
@@ -61,6 +65,8 @@ void intr_entry(int id)
         kernel_entry = proc_syscall;
     else if (id == INTR_ID_TIMER)
         kernel_entry = proc_yield;
+    else if (id == INTR_ID_EXTERNAL)
+        kernel_entry = proc_external;
     else
         FATAL("intr_entry: got unknown interrupt %d", id);
 
@@ -86,22 +92,61 @@ void ctx_entry()
     ctx_jump();
 }
 
+int external_handle()
+{
+    earth->trap_external();
+    struct syscall *sc = (struct syscall *)SYSCALL_ARG;
+    int rc;
+
+    for (int i = 0; i < MAX_NPROCESS; i++)
+    {
+        if (proc_set[i].status == PROC_REQUESTING)
+        {
+            earth->mmu_switch(proc_set[i].pid);
+            rc = proc_tty(sc);
+            if (rc == 0)
+            {
+                proc_set_runnable(proc_set[i].pid);
+                sc->type = SYS_UNUSED;
+            }
+        }
+    }
+
+    return 0;
+}
+
+void proc_wait()
+{
+    int mie;
+    asm("csrr %0, mie" : "=r"(mie));
+    asm("csrw mie, %0" ::"r"(mie ^ 0x88)); // Invert Timer and Software Interrupt Bits
+
+    asm("wfi");
+
+    asm("csrw mie, %0" ::"r"(mie | 0x88));
+    external_handle();
+}
+
 static void proc_yield()
 {
     /* Find the next runnable process */
     int next_idx = -1;
-    for (int i = 1; i <= MAX_NPROCESS; i++)
+    while (next_idx == -1)
     {
-        int s = proc_set[(proc_curr_idx + i) % MAX_NPROCESS].status;
-        if (s == PROC_READY || s == PROC_RUNNING || s == PROC_RUNNABLE)
+        for (int i = 1; i <= MAX_NPROCESS; i++)
         {
-            next_idx = (proc_curr_idx + i) % MAX_NPROCESS;
-            break;
+            int s = proc_set[(proc_curr_idx + i) % MAX_NPROCESS].status;
+            if (s == PROC_READY || s == PROC_RUNNING || s == PROC_RUNNABLE)
+            {
+                next_idx = (proc_curr_idx + i) % MAX_NPROCESS;
+                break;
+            }
         }
+
+        if (next_idx == -1)
+            proc_wait();
     }
 
-    if (next_idx == -1)
-        FATAL("proc_yield: no runnable process");
     if (curr_status == PROC_RUNNING)
         proc_set_runnable(curr_pid);
 
@@ -180,7 +225,7 @@ static void proc_recv(struct syscall *sc)
 
     if (sender == -1)
     {
-        curr_status = PROC_WAIT_TO_RECV;
+        curr_status = PROC_WAIT_TO_RECV; // Need to modify to return -1, put back in req mode
     }
     else
     {
@@ -205,14 +250,15 @@ static int proc_tty(struct syscall *sc)
     char *c;
     memcpy(&c, sc->msg.content, sizeof(char *));
 
-    earth->tty_read(c);
+    int rc = earth->tty_read(c);
 
-    return 0;
+    return rc;
 }
 
 static void proc_syscall()
 {
     struct syscall *sc = (struct syscall *)SYSCALL_ARG;
+    int rc;
 
     int type = sc->type;
     sc->retval = 0;
@@ -228,9 +274,23 @@ static void proc_syscall()
         proc_send(sc);
         break;
     case SYS_TTY:
-        proc_tty(sc);
+        proc_set_requesting(curr_pid);
+        int rc = proc_tty(sc);
+        if (rc == 0)
+        {
+            proc_set_runnable(curr_pid);
+        }
+        else
+            sc->type = SYS_TTY;
+        proc_yield();
         break;
     default:
         FATAL("proc_syscall: got unknown syscall type=%d", type);
     }
+}
+
+static void proc_external()
+{
+    external_handle();
+    proc_yield();
 }

@@ -13,7 +13,8 @@ enum
     PROC_RUNNING,
     PROC_RUNNABLE,
     PROC_WAIT_TO_SEND,
-    PROC_WAIT_TO_RECV
+    PROC_WAIT_TO_RECV,
+    PROC_REQUESTING
 };
 
 struct process
@@ -40,6 +41,7 @@ void proc_free(int);
 void proc_set_ready(int);
 void proc_set_running(int);
 void proc_set_runnable(int);
+void proc_set_requesting(int);
 
 void ctx_entry(void);
 void ctx_jump();

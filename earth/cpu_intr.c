@@ -12,6 +12,7 @@
 #define PLIC_ENABLE_BASE 0x0C002000UL
 #define PLIC_PRIORITY_BASE 0x0C000000UL
 #define PLIC_PENDING_BASE 0x0C001000UL
+#define PLIC_CLAIM_BASE 0x0C200004UL
 #define PLIC_UART0_ID 3UL
 
 /* These are two static variables storing
@@ -23,6 +24,9 @@ static void (*excp_handler)(int);
 /* Register handler functions by modifying the static variables */
 int intr_register(void (*_handler)(int)) { intr_handler = _handler; }
 int excp_register(void (*_handler)(int)) { excp_handler = _handler; }
+
+/* Device Interrupt Access Functions */
+int tty_read_uart();
 
 void trap_entry_vm(); /* This wrapper function is defined in earth.S */
 void trap_entry_start();
@@ -38,10 +42,27 @@ void trap_entry()
         (excp_handler) ? excp_handler(id) : FATAL("trap_entry: exception handler not registered");
 }
 
+int trap_external()
+{
+    int intr_cause = REGW(PLIC_CLAIM_BASE, 0);
+    int rc;
+
+    switch (intr_cause)
+    {
+    case PLIC_UART0_ID:
+        rc = tty_read_uart();
+        break;
+    }
+
+    REGW(PLIC_CLAIM_BASE, 0) = intr_cause; // Interrupt Pending Bit is Cleared
+    return rc;
+}
+
 void intr_init()
 {
     earth->intr_register = intr_register;
     earth->excp_register = excp_register;
+    earth->trap_external = trap_external;
 
     /* Setup the interrupt/exception entry function */
     if (earth->translation == PAGE_TABLE)
