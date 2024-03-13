@@ -200,6 +200,16 @@ static void proc_recv(struct syscall *sc)
     proc_yield();
 }
 
+static int proc_tty(struct syscall *sc)
+{
+    char *c;
+    memcpy(&c, sc->msg.content, sizeof(char *));
+
+    earth->tty_read(c);
+
+    return 0;
+}
+
 static void proc_syscall()
 {
     struct syscall *sc = (struct syscall *)SYSCALL_ARG;
@@ -216,6 +226,9 @@ static void proc_syscall()
         break;
     case SYS_SEND:
         proc_send(sc);
+        break;
+    case SYS_TTY:
+        proc_tty(sc);
         break;
     default:
         FATAL("proc_syscall: got unknown syscall type=%d", type);

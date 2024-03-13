@@ -33,6 +33,7 @@ int main()
     grass->sys_exit = sys_exit;
     grass->sys_send = sys_send;
     grass->sys_recv = sys_recv;
+    grass->sys_tty = sys_tty;
 
     /* Register interrupt and exception handlers */
     earth->intr_register(intr_entry);

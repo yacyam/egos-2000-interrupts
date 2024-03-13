@@ -18,7 +18,8 @@ struct earth
     int (*disk_write)(int block_no, int nblocks, char *src);
 
     int (*tty_recv_intr)();
-    int (*tty_read)(char *buf, int len);
+    int (*tty_read)(char *c);
+    int (*tty_read_initial)(char *buf, int len);
     int (*tty_write)(char *buf, int len);
 
     int (*tty_printf)(const char *format, ...);
@@ -55,6 +56,7 @@ struct grass
     void (*sys_exit)(int status);
     int (*sys_send)(int pid, char *msg, int size);
     int (*sys_recv)(int *pid, char *buf, int size);
+    int (*sys_tty)(char *c);
 };
 
 extern struct earth *earth;
