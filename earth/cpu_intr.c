@@ -49,8 +49,6 @@ int trap_external()
     int intr_cause = REGW(PLIC_CLAIM_BASE, 0);
     int rc;
 
-    CRITICAL("INTR CAUSE: %d", intr_cause);
-
     switch (intr_cause)
     {
     case PLIC_UART0_ID:
