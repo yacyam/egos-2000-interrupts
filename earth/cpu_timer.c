@@ -12,17 +12,20 @@
 
 #include "egos.h"
 
-static unsigned long long mtime_get() {
+static unsigned long long mtime_get()
+{
     unsigned int low, high;
-    do {
+    do
+    {
         high = REGW(0x200BFF8, 4);
-        low  = REGW(0x200BFF8, 0);
-    }  while ( REGW(0x200BFF8, 4) != high );
+        low = REGW(0x200BFF8, 0);
+    } while (REGW(0x200BFF8, 4) != high);
 
     return (((unsigned long long)high) << 32) | low;
 }
 
-static int mtimecmp_set(unsigned long long time) {
+static int mtimecmp_set(unsigned long long time)
+{
     REGW(0x2004000, 4) = 0xFFFFFFFF;
     REGW(0x2004000, 0) = (unsigned int)time;
     REGW(0x2004000, 4) = (unsigned int)(time >> 32);
@@ -33,7 +36,8 @@ static int mtimecmp_set(unsigned long long time) {
 static unsigned int QUANTUM;
 int timer_reset() { return mtimecmp_set(mtime_get() + QUANTUM); }
 
-void timer_init()  {
+void timer_init()
+{
     earth->timer_reset = timer_reset;
     QUANTUM = (earth->platform == ARTY)? 5000 : 500000;
     mtimecmp_set(0x0FFFFFFFFFFFFFFFUL);

@@ -94,15 +94,15 @@ void ctx_entry()
 
 int external_handle()
 {
-    earth->trap_external();
+    int rc = earth->trap_external();
     struct syscall *sc = (struct syscall *)SYSCALL_ARG;
-    int rc;
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
         if (proc_set[i].status == PROC_REQUESTING)
         {
             earth->mmu_switch(proc_set[i].pid);
+            // Currently only set Requesting Mode on TTY Read Syscall
             rc = proc_tty(sc);
             if (rc == 0)
             {
@@ -119,7 +119,7 @@ void proc_wait()
 {
     int mie;
     asm("csrr %0, mie" : "=r"(mie));
-    asm("csrw mie, %0" ::"r"(mie ^ 0x88)); // Invert Timer and Software Interrupt Bits
+    asm("csrw mie, %0" ::"r"(mie & ~(0x88))); // Invert Timer and Software Interrupt Bits
 
     asm("wfi");
 
@@ -144,7 +144,14 @@ static void proc_yield()
         }
 
         if (next_idx == -1)
+        {
+            if (curr_status == PROC_RUNNING)
+            {
+                next_idx = proc_curr_idx;
+                break;
+            }
             proc_wait();
+        }
     }
 
     if (curr_status == PROC_RUNNING)

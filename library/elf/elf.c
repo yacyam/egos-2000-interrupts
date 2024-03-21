@@ -55,6 +55,7 @@ static void load_app(int pid, elf_reader reader,
         }
         reader(block_offset++, (char *)base + (off % PAGE_SIZE));
     }
+
     int last_page_filled = pheader->p_filesz % PAGE_SIZE;
     int last_page_nzeros = PAGE_SIZE - last_page_filled;
     if (last_page_filled)

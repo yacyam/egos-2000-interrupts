@@ -51,5 +51,6 @@ int main()
 
     /* Jump to the entry of process GPID_PROCESS */
     asm("mv a0, %0" ::"r"(APPS_ARG));
-    asm("jr %0" ::"r"(APPS_ENTRY));
+    asm("csrw mepc, %0" ::"r"(APPS_ENTRY));
+    asm("mret");
 }

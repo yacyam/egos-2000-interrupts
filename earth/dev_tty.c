@@ -10,7 +10,7 @@
  */
 
 #define LIBC_STDIO
-#define TTY_BUFF_SIZE 1
+#define TTY_BUFF_SIZE 128
 #include "egos.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -19,6 +19,8 @@ struct tty_buff
 {
     char buf[TTY_BUFF_SIZE];
     int size;
+    int head;
+    int tail;
 };
 
 struct tty_buff tty_read_buf;
@@ -32,8 +34,12 @@ int tty_recv_intr() { return (is_reading) ? 0 : (uart_getc(&c) == 3); }
 
 void tty_buff_init()
 {
-    tty_read_buf.buf[0] = 0;
+    for (int i = 0; i < TTY_BUFF_SIZE; i++)
+        tty_read_buf.buf[i] = 0;
+
     tty_read_buf.size = 0;
+    tty_read_buf.head = 0;
+    tty_read_buf.tail = 0;
 }
 
 int tty_write(char *buf, int len)
@@ -48,8 +54,20 @@ int tty_read_uart()
     if (c == -1)
         return -1;
 
-    tty_read_buf.buf[0] = (char)c;
-    tty_read_buf.size++;
+    int tail_ptr = tty_read_buf.tail;
+
+    do
+    {
+        tty_read_buf.buf[tail_ptr] = (char)c;
+
+        if (tty_read_buf.size < TTY_BUFF_SIZE)
+        {
+            tail_ptr = (tail_ptr + 1) % TTY_BUFF_SIZE;
+            tty_read_buf.size++;
+        }
+    } while (uart_getc(&c) != -1);
+
+    tty_read_buf.tail = tail_ptr;
     return 0;
 }
 
@@ -58,9 +76,13 @@ int tty_read(char *ret_val)
     if (tty_read_buf.size == 0)
         return -1;
 
-    *ret_val = (char)tty_read_buf.buf[0];
+    int head_ptr = tty_read_buf.head;
+    *ret_val = (char)tty_read_buf.buf[head_ptr];
 
-    tty_read_buf.buf[0] = 0;
+    tty_read_buf.buf[head_ptr] = 0;
+
+    tty_read_buf.head = (head_ptr + 1) % TTY_BUFF_SIZE;
+
     tty_read_buf.size--;
     return 0;
 }

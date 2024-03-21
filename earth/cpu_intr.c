@@ -33,9 +33,11 @@ void trap_entry_start();
 void trap_entry()
 {
     int mcause;
+
     asm("csrr %0, mcause" : "=r"(mcause));
 
     int id = mcause & 0x3FF;
+
     if (mcause & (1 << 31))
         (intr_handler) ? intr_handler(id) : FATAL("trap_entry: interrupt handler not registered");
     else
@@ -46,6 +48,8 @@ int trap_external()
 {
     int intr_cause = REGW(PLIC_CLAIM_BASE, 0);
     int rc;
+
+    CRITICAL("INTR CAUSE: %d", intr_cause);
 
     switch (intr_cause)
     {
@@ -81,7 +85,7 @@ void intr_init()
     asm("csrr %0, mie" : "=r"(mie));
     asm("csrw mie, %0" ::"r"(mie | 0x888));
     asm("csrr %0, mstatus" : "=r"(mstatus));
-    asm("csrw mstatus, %0" ::"r"(mstatus | 0x88));
+    asm("csrw mstatus, %0" ::"r"(mstatus | 0x80));
 
     /* Enable External Interrupts on PLIC */
     REGW(PLIC_ENABLE_BASE, 0) |= (1 << PLIC_UART0_ID);
