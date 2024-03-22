@@ -24,10 +24,9 @@ struct process
     int receiver_pid; /* used when waiting to send a message */
     void *sp, *mepc;  /* process context = stack pointer (sp)
                        * + machine exception program counter (mepc) */
-    int reg_file[NUM_REGS];
 };
 
-#define MAX_NPROCESS 16
+#define MAX_NPROCESS 16 // Could lower to allow for kernel regs
 extern int proc_curr_idx;
 extern struct process proc_set[MAX_NPROCESS];
 #define curr_pid proc_set[proc_curr_idx].pid

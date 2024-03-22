@@ -74,8 +74,8 @@ extern struct grass *grass;
 #define SYSCALL_ARG 0x80000400       /* 1KB    system call args      */
 #define APPS_ARG 0x80000000          /* 1KB    app main() argc, argv */
 #define APPS_SIZE 0x00003000
-#define APPS_ENTRY 0x08006000 /* 12KB   app code+data         */
-#define GRASS_SIZE 0x00003800
+#define APPS_ENTRY 0x08005000 /* 12KB   app code+data         */
+#define GRASS_SIZE 0x00002800
 #define GRASS_ENTRY 0x08002800 /* 8KB    grass code+data       */
                                /* 12KB   earth data            */
                                /* earth code is in QSPI flash  */

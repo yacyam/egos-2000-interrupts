@@ -13,7 +13,7 @@ grass_entry:
     call main
 
 ctx_jump:
-    /* Read reg_file Pointer into Kernel SP */
+    /* Read Back User SP */
     csrr sp, mscratch
     /* Restore RA of Interrupted Procedure */
     lw ra, 108(sp)
@@ -47,5 +47,5 @@ ctx_jump:
     lw s2, 8(sp)
     lw s1, 4(sp)
     lw s0, 0(sp)
-    lw sp, 112(sp) /* Load Back User SP */
+    addi sp, sp, 116
     mret

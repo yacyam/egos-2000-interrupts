@@ -75,20 +75,20 @@ void intr_entry(int id)
 
 void ctx_entry()
 {
-    /* Now on the kernel stack */
-    int mepc;
-    void *reg_file;
+    int mepc, sp;
     asm("csrr %0, mepc" : "=r"(mepc));
+    asm("csrr %0, mscratch" : "=r"(sp));
     proc_set[proc_curr_idx].mepc = (void *)mepc;
+    proc_set[proc_curr_idx].sp = (void *)sp;
 
     /* kernel_entry() is either proc_yield() or proc_syscall() */
     kernel_entry();
 
     /* Switch back to the user application stack */
     mepc = (int)proc_set[proc_curr_idx].mepc;
-    reg_file = (void *)proc_set[proc_curr_idx].reg_file;
+    sp = (int)proc_set[proc_curr_idx].sp;
     asm("csrw mepc, %0" ::"r"(mepc));
-    asm("csrw mscratch, %0" ::"r"(reg_file));
+    asm("csrw mscratch, %0" ::"r"(sp));
     ctx_jump();
 }
 
@@ -174,13 +174,11 @@ static void proc_yield()
     if (curr_status == PROC_READY)
     {
         proc_set_running(curr_pid);
-        void *reg_file = (void *)proc_set[proc_curr_idx].reg_file;
         /* Prepare argc and argv */
         asm("mv a0, %0" ::"r"(APPS_ARG));
         asm("mv a1, %0" ::"r"(APPS_ARG + 4));
         /* Enter application code entry using mret */
         asm("csrw mepc, %0" ::"r"(APPS_ENTRY));
-        asm("csrw mscratch, %0" ::"r"(reg_file));
         asm("mret");
     }
 

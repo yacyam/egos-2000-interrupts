@@ -20,43 +20,50 @@ earth_entry:
     call main
 
 trap_entry_start:
-    /* Swap User SP and Reg File Pointer */
-    csrrw sp, mscratch, sp
+    /* Write User SP into MScratch */
+    csrw mscratch, sp
+    /* Adjust SP to top of Kernel Stack */
+    lui sp, 0x80004
+    addi sp, sp, -0x80
+    /* Swap t0 and User SP */
+    csrrw t0, mscratch, t0
+    addi t0, t0, -116
     /* Save RA of Interrupted Procedure */
-    sw ra, 108(sp)
+    sw ra, 108(t0)
     /* Save all Arguments Used in User Level Execution */
-    sw a7, 104(sp)
-    sw a6, 100(sp)
-    sw a5, 96(sp)
-    sw a4, 92(sp)
-    sw a3, 88(sp)
-    sw a2, 84(sp)
-    sw a1, 80(sp)
-    sw a0, 76(sp)
+    sw a7, 104(t0)
+    sw a6, 100(t0)
+    sw a5, 96(t0)
+    sw a4, 92(t0)
+    sw a3, 88(t0)
+    sw a2, 84(t0)
+    sw a1, 80(t0)
+    sw a0, 76(t0)
     /* Save all Temporaries Used in User Level Execution */
-    sw t6, 72(sp)
-    sw t5, 68(sp)
-    sw t4, 64(sp)
-    sw t3, 60(sp)
-    sw t2, 56(sp)
-    sw t1, 52(sp)
-    sw t0, 48(sp)
+    sw t6, 72(t0)
+    sw t5, 68(t0)
+    sw t4, 64(t0)
+    sw t3, 60(t0)
+    sw t2, 56(t0)
+    sw t1, 52(t0)
     /* Save all Saved Registers for Idempotency */
-    sw s11,44(sp)
-    sw s10,40(sp)
-    sw s9, 36(sp)
-    sw s8, 32(sp)
-    sw s7, 28(sp)
-    sw s6, 24(sp)
-    sw s5, 20(sp)
-    sw s4, 16(sp)
-    sw s3, 12(sp)
-    sw s2, 8(sp)
-    sw s1, 4(sp)
-    sw s0, 0(sp)
-    csrr t0, mscratch /* Load Back User SP */
-    sw t0, 112(sp) /* Store User SP in PCB */
-    li sp, 0x80003f80 /* Move SP to Top of Single Kernel Stack */
+    sw s11,44(t0)
+    sw s10,40(t0)
+    sw s9, 36(t0)
+    sw s8, 32(t0)
+    sw s7, 28(t0)
+    sw s6, 24(t0)
+    sw s5, 20(t0)
+    sw s4, 16(t0)
+    sw s3, 12(t0)
+    sw s2, 8(t0)
+    sw s1, 4(t0)
+    sw s0, 0(t0)
+    /* Write Original User t0 Value on User Stack */
+    csrr t1, mscratch
+    sw t1, 48(t0)
+    /* Write Updated User SP into MScratch */
+    csrw mscratch, t0
     j trap_entry
 
 trap_entry_vm:
