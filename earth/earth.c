@@ -66,6 +66,5 @@ int main()
     asm("csrr %0, mstatus" : "=r"(mstatus));
     asm("csrw mstatus, %0" ::"r"((mstatus & ~(3 << 11)) | (GRASS_MODE << 11) | (1 << 18)));
 
-    asm("csrw mepc, %0" ::"r"(GRASS_ENTRY));
-    asm("mret");
+    asm("jr %0" ::"r"(GRASS_ENTRY));
 }
