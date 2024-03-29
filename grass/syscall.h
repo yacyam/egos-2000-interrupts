@@ -7,7 +7,8 @@ enum syscall_type
     SYS_UNUSED,
     SYS_RECV,
     SYS_SEND,
-    SYS_TTY,
+    TTY_READ,
+    TTY_WRITE,
     SYS_NCALLS
 };
 
@@ -28,4 +29,5 @@ struct syscall
 void sys_exit(int status);
 int sys_send(int pid, char *msg, int size);
 int sys_recv(int *pid, char *buf, int size);
-int sys_tty(char *c);
+int sys_tty_read(char *c);
+int sys_tty_write(char *msg, int len);

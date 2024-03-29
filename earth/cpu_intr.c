@@ -26,7 +26,7 @@ int intr_register(void (*_handler)(int)) { intr_handler = _handler; }
 int excp_register(void (*_handler)(int)) { excp_handler = _handler; }
 
 /* Device Interrupt Access Functions */
-int tty_read_uart();
+int tty_handle_intr();
 
 void trap_entry_vm(); /* This wrapper function is defined in earth.S */
 void trap_entry_start();
@@ -52,7 +52,7 @@ int trap_external()
     switch (intr_cause)
     {
     case PLIC_UART0_ID:
-        rc = tty_read_uart();
+        rc = tty_handle_intr();
         break;
     }
 

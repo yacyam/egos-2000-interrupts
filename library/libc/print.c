@@ -15,9 +15,15 @@
  * and prints the string to the tty device by calling _write().
  */
 
-int _write(int file, char *ptr, int len) {
-    if (file != STDOUT_FILENO) return -1;
-    return earth->tty_write(ptr, len);
+int _write(int file, char *ptr, int len)
+{
+    if (file != STDOUT_FILENO)
+        return -1;
+
+    if (earth->tty_initializing())
+        return earth->tty_write(ptr, len);
+
+    return grass->sys_tty_write(ptr, len);
 }
 
 int _close(int file) { return -1; }
@@ -27,4 +33,9 @@ int _read(int file, void *ptr, int len) { return -1; }
 int _isatty(int file) { return (file == STDOUT_FILENO); }
 void _kill() {}
 int _getpid() { return -1; }
-void _exit(int status) { grass->sys_exit(status); while(1); }
+void _exit(int status)
+{
+    grass->sys_exit(status);
+    while (1)
+        ;
+}

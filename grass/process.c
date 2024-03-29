@@ -35,7 +35,7 @@ int proc_alloc()
             return proc_nprocs;
         }
 
-    FATAL("proc_alloc: reach the limit of %d processes", MAX_NPROCESS);
+    // FATAL("proc_alloc: reach the limit of %d processes", MAX_NPROCESS);
 }
 
 void proc_free(int pid)

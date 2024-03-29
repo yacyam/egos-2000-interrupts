@@ -39,7 +39,8 @@ static void proc_syscall();
 static void proc_external();
 static void (*kernel_entry)();
 
-static int proc_tty(struct syscall *sc);
+static int proc_tty_read(struct syscall *sc);
+static int proc_tty_write(struct syscall *sc);
 
 int proc_curr_idx;
 struct process proc_set[MAX_NPROCESS];
@@ -67,8 +68,7 @@ void intr_entry(int id)
         kernel_entry = proc_yield;
     else if (id == INTR_ID_EXTERNAL)
         kernel_entry = proc_external;
-    else
-        FATAL("intr_entry: got unknown interrupt %d", id);
+    // FATAL("intr_entry: got unknown interrupt %d", id);
 
     ctx_entry();
 }
@@ -94,7 +94,8 @@ void ctx_entry()
 
 int external_handle()
 {
-    int rc = earth->trap_external();
+    int rc;
+    earth->trap_external();
     struct syscall *sc = (struct syscall *)SYSCALL_ARG;
 
     for (int i = 0; i < MAX_NPROCESS; i++)
@@ -102,8 +103,7 @@ int external_handle()
         if (proc_set[i].status == PROC_REQUESTING)
         {
             earth->mmu_switch(proc_set[i].pid);
-            // Currently only set Requesting Mode on TTY Read Syscall
-            rc = proc_tty(sc);
+            rc = sc->type == TTY_READ ? proc_tty_read(sc) : proc_tty_write(sc);
             if (rc == 0)
             {
                 proc_set_runnable(proc_set[i].pid);
@@ -250,14 +250,22 @@ static void proc_recv(struct syscall *sc)
     proc_yield();
 }
 
-static int proc_tty(struct syscall *sc)
+static int proc_tty_read(struct syscall *sc)
 {
     char *c;
     memcpy(&c, sc->msg.content, sizeof(char *));
 
-    int rc = earth->tty_read(c);
+    return earth->tty_read(c);
+}
 
-    return rc;
+static int proc_tty_write(struct syscall *sc)
+{
+    char *msg;
+    int len;
+
+    memcpy(&msg, sc->msg.content, sizeof(char *));
+    memcpy(&len, sc->msg.content + sizeof(msg), sizeof(int));
+    return earth->tty_write(msg, len);
 }
 
 static void proc_syscall()
@@ -278,19 +286,19 @@ static void proc_syscall()
     case SYS_SEND:
         proc_send(sc);
         break;
-    case SYS_TTY:
+    default:
         proc_set_requesting(curr_pid);
-        int rc = proc_tty(sc);
+        rc = type == TTY_READ ? proc_tty_read(sc) : proc_tty_write(sc);
         if (rc == 0)
         {
             proc_set_runnable(curr_pid);
         }
         else
-            sc->type = SYS_TTY;
+            sc->type = type;
         proc_yield();
         break;
-    default:
-        FATAL("proc_syscall: got unknown syscall type=%d", type);
+        // default:
+        //     FATAL("proc_syscall: got unknown syscall type=%d", type);
     }
 }
 

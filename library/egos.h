@@ -23,6 +23,9 @@ struct earth
     int (*tty_read_initial)(char *buf, int len);
     int (*tty_write)(char *buf, int len);
 
+    int (*tty_initializing)();
+    int (*tty_set_initializing)(int state);
+
     int (*tty_printf)(const char *format, ...);
     int (*tty_info)(const char *format, ...);
     int (*tty_fatal)(const char *format, ...);
@@ -57,11 +60,17 @@ struct grass
     void (*sys_exit)(int status);
     int (*sys_send)(int pid, char *msg, int size);
     int (*sys_recv)(int *pid, char *buf, int size);
-    int (*sys_tty)(char *c);
+    int (*sys_tty_read)(char *c);
+    int (*sys_tty_write)(char *msg, int len);
 };
 
 extern struct earth *earth;
 extern struct grass *grass;
+
+/* Return Value Layout */
+#define RET_SUCCESS 0
+#define RET_FAIL -1
+#define RET_ERR -2
 
 /* Memory layout */
 #define PAGE_SIZE 4096

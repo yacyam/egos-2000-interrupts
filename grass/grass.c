@@ -33,7 +33,8 @@ int main()
     grass->sys_exit = sys_exit;
     grass->sys_send = sys_send;
     grass->sys_recv = sys_recv;
-    grass->sys_tty = sys_tty;
+    grass->sys_tty_read = sys_tty_read;
+    grass->sys_tty_write = sys_tty_write;
 
     /* Register interrupt and exception handlers */
     earth->intr_register(intr_entry);
@@ -44,6 +45,8 @@ int main()
     elf_load(GPID_PROCESS, sys_proc_read, 0, 0);
     proc_set_running(proc_alloc());
     earth->mmu_switch(GPID_PROCESS);
+
+    earth->tty_set_initializing(0);
 
     /* Jump to the entry of process GPID_PROCESS */
     asm("mv a0, %0" ::"r"(APPS_ARG));

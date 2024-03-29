@@ -16,7 +16,7 @@ int read_chars(char *buf, int len)
 
     for (int i = 0; i < len - 1; i++)
     {
-        grass->sys_tty(&c);
+        grass->sys_tty_read(&c);
         buf[i] = (char)c;
 
         switch (c)

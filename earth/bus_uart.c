@@ -29,9 +29,30 @@ void uart_init(long baud_rate)
     /* UART0 send/recv are mapped to GPIO pin16 and pin17 */
     REGW(GPIO0_BASE, GPIO0_IOF_ENABLE) |= (1 << 16) | (1 << 17);
 
-    /* Enable UART0 Interrupts */
-    REGW(UART0_BASE, UART0_IE) |= 2;
-    REGW(UART0_BASE, UART0_IP) &= 0;
+    /* Increase UART0 Write Watermark to 3 */
+    REGW(UART0_BASE, UART0_TXCTRL) |= 0x30000;
+
+    /* Enable UART0 Interrupts for Writes and Reads */
+    REGW(UART0_BASE, UART0_IE) |= 3;
+}
+
+int uart_intrp()
+{
+    int intr_pending = REGW(UART0_BASE, UART0_IP);
+    return intr_pending;
+}
+
+/* PROBLEM: Uart device needs sufficient entries to be enqueued
+    to remove interrupt pending
+*/
+void uart_txen()
+{
+    REGW(UART0_BASE, UART0_IE) |= 0x1;
+}
+
+void uart_txdis()
+{
+    REGW(UART0_BASE, UART0_IE) &= ~(0x1);
 }
 
 int uart_getc(int *c)
@@ -40,9 +61,15 @@ int uart_getc(int *c)
     return *c = (ch & (1 << 31)) ? -1 : (ch & 0xFF);
 }
 
-void uart_putc(int c)
+int uart_putc(int c)
 {
-    while ((REGW(UART0_BASE, UART0_TXDATA) & (1 << 31)))
-        ;
-    REGW(UART0_BASE, UART0_TXDATA) = c;
+    int is_full = (REGW(UART0_BASE, UART0_TXDATA) & (1 << 31));
+
+    if (is_full)
+    {
+        return -1;
+    }
+
+    REGW(UART0_BASE, UART0_TXDATA) = c; // need to change to amoor.w
+    return 0;
 }

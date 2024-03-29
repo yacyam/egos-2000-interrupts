@@ -47,10 +47,19 @@ int sys_recv(int *sender, char *buf, int size)
     return sc->retval;
 }
 
-int sys_tty(char *c)
+int sys_tty_read(char *c)
 {
-    sc->type = SYS_TTY;
+    sc->type = TTY_READ;
     memcpy(sc->msg.content, &c, sizeof(char *));
+    sys_invoke();
+    return sc->retval;
+}
+
+int sys_tty_write(char *msg, int len)
+{
+    sc->type = TTY_WRITE;
+    memcpy(sc->msg.content, &msg, sizeof(char *));
+    memcpy(sc->msg.content + sizeof(char *), &len, sizeof(int));
     sys_invoke();
     return sc->retval;
 }

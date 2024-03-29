@@ -26,7 +26,7 @@ struct process
                        * + machine exception program counter (mepc) */
 };
 
-#define MAX_NPROCESS 16 // Could lower to allow for kernel regs
+#define MAX_NPROCESS 16
 extern int proc_curr_idx;
 extern struct process proc_set[MAX_NPROCESS];
 #define curr_pid proc_set[proc_curr_idx].pid
