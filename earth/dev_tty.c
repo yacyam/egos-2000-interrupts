@@ -264,20 +264,10 @@ int tty_handle_intr()
     // tty_critical("ip: %d\n", ip);
     is_initializing = 0;
 
-    switch (ip)
-    {
-    case UART0_RX_INTR:
+    if (ip & UART0_RX_INTR)
         tty_read_uart();
-        break;
-    case UART0_TX_INTR:
+    if (ip & UART0_TX_INTR)
         tty_write_uart();
-        break;
-    case UART0_RX_INTR | UART0_TX_INTR:
-        tty_read_uart();
-        tty_write_uart();
-        break;
-    }
-
     return rc;
 }
 

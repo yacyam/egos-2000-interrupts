@@ -33,13 +33,12 @@ void uart_init(long baud_rate)
     REGW(UART0_BASE, UART0_TXCTRL) |= 0x30000;
 
     /* Enable UART0 Interrupts for Writes and Reads */
-    REGW(UART0_BASE, UART0_IE) |= 3;
+    REGW(UART0_BASE, UART0_IE) |= 2;
 }
 
 int uart_intrp()
 {
-    int intr_pending = REGW(UART0_BASE, UART0_IP);
-    return intr_pending;
+    return REGW(UART0_BASE, UART0_IP);
 }
 
 /* PROBLEM: Uart device needs sufficient entries to be enqueued

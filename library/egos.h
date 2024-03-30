@@ -78,6 +78,7 @@ extern struct grass *grass;
 #define FRAME_CACHE_START 0x80004000 /* 112KB  frame cache           */
                                      /*        earth interface       */
 #define GRASS_STACK_TOP 0x80003f80   /* 8KB    earth/grass stack     */
+#define GRASS_STACK_SIZE 0x00002000
                                      /*        grass interface       */
 #define APPS_STACK_TOP 0x80002000    /* 6KB    app stack             */
 #define SYSCALL_ARG 0x80000400       /* 1KB    system call args      */

@@ -15,12 +15,18 @@
  * and prints the string to the tty device by calling _write().
  */
 
+static int is_kernel;
+
+void _print_set_kernel(){
+    is_kernel = 1;
+}
+
 int _write(int file, char *ptr, int len)
 {
     if (file != STDOUT_FILENO)
         return -1;
 
-    if (earth->tty_initializing())
+    if (is_kernel)
         return earth->tty_write(ptr, len);
 
     return grass->sys_tty_write(ptr, len);
