@@ -16,6 +16,8 @@
 struct grass *grass = (void *)APPS_STACK_TOP;
 struct earth *earth = (void *)GRASS_STACK_TOP;
 
+void kernel_init();
+
 static int sys_proc_read(int block_no, char *dst)
 {
     return earth->disk_read(SYS_PROC_EXEC_START + block_no, 1, dst);
@@ -24,6 +26,8 @@ static int sys_proc_read(int block_no, char *dst)
 int main()
 {
     CRITICAL("Enter the grass layer");
+
+    kernel_init();
 
     /* Initialize the grass interface functions */
     grass->proc_alloc = proc_alloc;
@@ -46,7 +50,7 @@ int main()
     proc_set_running(proc_alloc());
     earth->mmu_switch(GPID_PROCESS);
 
-    earth->tty_set_initializing(0);
+    earth->tty_user_mode();
 
     /* Jump to the entry of process GPID_PROCESS */
     asm("mv a0, %0" ::"r"(APPS_ARG));

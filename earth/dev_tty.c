@@ -16,6 +16,7 @@
 #include "egos.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include "../library/libc/print.h"
 
 struct tty_buff
 {
@@ -27,8 +28,6 @@ struct tty_buff
 
 struct tty_buff tty_read_buf;
 struct tty_buff tty_write_buf;
-
-int is_initializing = 1;
 
 int uart_intrp();
 int uart_getc(int *c);
@@ -54,7 +53,7 @@ void tty_buff_init()
     tty_read_buf.tail = tty_write_buf.tail = 0;
 }
 
-void tty_write_initial(char *msg, int len)
+void tty_write_kernel(char *msg, int len)
 {
     int rc;
     for (int i = 0; i < len; i++)
@@ -120,12 +119,6 @@ void tty_write_buff(char *msg, int len)
 
 int tty_write(char *msg, int len)
 {
-    if (is_initializing)
-    {
-        tty_write_initial(msg, len);
-        return RET_SUCCESS;
-    }
-
     if (len > TTY_BUFF_SIZE)
         return RET_ERR;
 
@@ -244,25 +237,20 @@ int tty_critical(const char *format, ...)
     LOG("\x1B[1;33m[CRITICAL] ", "\x1B[1;0m\r\n") /* yellow color */
 }
 
-int tty_initializing()
+void tty_kernel_mode()
 {
-    return is_initializing;
+    _print_set_kernel();
 }
 
-int tty_set_initializing(int state)
+void tty_user_mode()
 {
-    is_initializing = state;
-    return RET_SUCCESS;
+    _print_set_user();
 }
 
 int tty_handle_intr()
 {
     int rc, ip;
     ip = uart_intrp();
-
-    is_initializing = 1;
-    // tty_critical("ip: %d\n", ip);
-    is_initializing = 0;
 
     if (ip & UART0_RX_INTR)
         tty_read_uart();
@@ -281,14 +269,16 @@ void tty_init()
         ;
 
     tty_buff_init();
+    tty_kernel_mode();
 
     earth->tty_read = tty_read;
     earth->tty_read_initial = tty_read_initial;
     earth->tty_write = tty_write;
+    earth->tty_write_kernel = tty_write_kernel;
     earth->tty_recv_intr = tty_recv_intr;
 
-    earth->tty_initializing = tty_initializing;
-    earth->tty_set_initializing = tty_set_initializing;
+    earth->tty_kernel_mode = tty_kernel_mode;
+    earth->tty_user_mode = tty_user_mode;
 
     earth->tty_printf = tty_printf;
     earth->tty_info = tty_info;

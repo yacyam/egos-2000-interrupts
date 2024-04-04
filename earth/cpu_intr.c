@@ -33,6 +33,7 @@ void trap_entry_start();
 void trap_entry()
 {
     int mcause;
+    earth->tty_kernel_mode();
 
     asm("csrr %0, mcause" : "=r"(mcause));
 

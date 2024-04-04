@@ -8,6 +8,7 @@
  */
 
 #include "egos.h"
+#include "print.h"
 #include <unistd.h>
 
 /* printf() is linked from the compiler's C library;
@@ -17,8 +18,14 @@
 
 static int is_kernel;
 
-void _print_set_kernel(){
+void _print_set_kernel()
+{
     is_kernel = 1;
+}
+
+void _print_set_user()
+{
+    is_kernel = 0;
 }
 
 int _write(int file, char *ptr, int len)
@@ -27,7 +34,10 @@ int _write(int file, char *ptr, int len)
         return -1;
 
     if (is_kernel)
-        return earth->tty_write(ptr, len);
+    {
+        earth->tty_write_kernel(ptr, len);
+        return 0;
+    }
 
     return grass->sys_tty_write(ptr, len);
 }

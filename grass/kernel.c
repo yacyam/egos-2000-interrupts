@@ -46,7 +46,8 @@ struct kernel_msg
     char msg[SYSCALL_MSG_LEN];
 };
 
-static struct kernel_msg *KERNEL_MSG_BUFF = (struct kernel_msg *)GRASS_STACK_TOP - GRASS_STACK_SIZE;
+struct kernel_msg *KERNEL_MSG_BUFF =
+    (struct kernel_msg *)(GRASS_STACK_TOP - GRASS_STACK_SIZE + sizeof(struct grass));
 
 static int proc_tty_read(struct syscall *sc);
 static int proc_tty_write(struct syscall *sc);
@@ -99,22 +100,29 @@ void ctx_entry()
     sp = (int)proc_set[proc_curr_idx].sp;
     asm("csrw mepc, %0" ::"r"(mepc));
     asm("csrw mscratch, %0" ::"r"(sp));
+
+    earth->tty_user_mode();
     ctx_jump();
 }
 
 int external_handle()
 {
     int rc;
+    int orig_proc_idx = proc_curr_idx;
     earth->trap_external();
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
         if (proc_set[i].status == PROC_REQUESTING)
         {
+            proc_curr_idx = i;
             earth->mmu_switch(proc_set[i].pid);
             syscall_ret();
         }
     }
+
+    proc_curr_idx = orig_proc_idx;
+    earth->mmu_switch(curr_pid);
 
     return 0;
 }
@@ -177,6 +185,7 @@ static void proc_yield()
     /* Call the entry point for newly created process */
     if (curr_status == PROC_READY)
     {
+        earth->tty_user_mode();
         proc_set_running(curr_pid);
         /* Prepare argc and argv */
         asm("mv a0, %0" ::"r"(APPS_ARG));
@@ -191,6 +200,7 @@ static void proc_yield()
 
 static int y_send(struct syscall *sc)
 {
+    external_handle();
     if (KERNEL_MSG_BUFF->in_use == 1)
     {
         return -1;
@@ -199,12 +209,14 @@ static int y_send(struct syscall *sc)
     KERNEL_MSG_BUFF->in_use = 1;
     KERNEL_MSG_BUFF->receiver = sc->msg.receiver;
     memcpy(&KERNEL_MSG_BUFF->msg, &sc->msg, sizeof(sc->msg));
+
     external_handle();
     return 0;
 }
 
 static int y_recv(struct syscall *sc)
 {
+    external_handle();
     if (KERNEL_MSG_BUFF->in_use == 0 || KERNEL_MSG_BUFF->receiver != curr_pid)
     {
         return -1;
@@ -212,73 +224,9 @@ static int y_recv(struct syscall *sc)
 
     KERNEL_MSG_BUFF->in_use = 0;
     memcpy(&sc->msg, &KERNEL_MSG_BUFF->msg, sizeof(sc->msg));
+    external_handle();
     return 0;
 }
-
-// static void proc_send(struct syscall *sc)
-// {
-//     sc->msg.sender = curr_pid;
-//     int receiver = sc->msg.receiver;
-
-//     for (int i = 0; i < MAX_NPROCESS; i++)
-//         if (proc_set[i].pid == receiver)
-//         {
-//             /* Find the receiver */
-//             if (proc_set[i].status != PROC_WAIT_TO_RECV)
-//             {
-//                 curr_status = PROC_WAIT_TO_SEND;
-//                 proc_set[proc_curr_idx].receiver_pid = receiver;
-//             }
-//             else
-//             {
-//                 /* Copy message from sender to kernel stack */
-//                 struct sys_msg tmp;
-//                 earth->mmu_switch(curr_pid);
-//                 memcpy(&tmp, &sc->msg, sizeof(tmp));
-
-//                 /* Copy message from kernel stack to receiver */
-//                 earth->mmu_switch(receiver);
-//                 memcpy(&sc->msg, &tmp, sizeof(tmp));
-
-//                 /* Set receiver process as runnable */
-//                 proc_set_runnable(receiver);
-//             }
-//             proc_yield();
-//             return;
-//         }
-
-//     sc->retval = -1;
-// }
-
-// static void proc_recv(struct syscall *sc)
-// {
-//     int sender = -1;
-//     for (int i = 0; i < MAX_NPROCESS; i++)
-//         if (proc_set[i].status == PROC_WAIT_TO_SEND &&
-//             proc_set[i].receiver_pid == curr_pid)
-//             sender = proc_set[i].pid;
-
-//     if (sender == -1)
-//     {
-//         curr_status = PROC_WAIT_TO_RECV; // Need to modify to return -1, put back in req mode
-//     }
-//     else
-//     {
-//         /* Copy message from sender to kernel stack */
-//         struct sys_msg tmp;
-//         earth->mmu_switch(sender);
-//         memcpy(&tmp, &sc->msg, sizeof(tmp));
-
-//         /* Copy message from kernel stack to receiver */
-//         earth->mmu_switch(curr_pid);
-//         memcpy(&sc->msg, &tmp, sizeof(tmp));
-
-//         /* Set sender process as runnable */
-//         proc_set_runnable(sender);
-//     }
-
-//     proc_yield();
-// }
 
 static int proc_tty_read(struct syscall *sc)
 {
@@ -301,7 +249,7 @@ static int proc_tty_write(struct syscall *sc)
 static void syscall_ret()
 {
     struct syscall *sc = (struct syscall *)SYSCALL_ARG;
-    int rc;
+    int rc = -1;
 
     int type = sc->type;
     sc->retval = 0;
@@ -342,4 +290,9 @@ static void proc_external()
 {
     external_handle();
     proc_yield();
+}
+
+void kernel_init()
+{
+    KERNEL_MSG_BUFF->in_use = 0;
 }
