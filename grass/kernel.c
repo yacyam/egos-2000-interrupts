@@ -42,6 +42,7 @@ static void (*kernel_entry)();
 struct kernel_msg
 {
     int in_use;
+    int sender;
     int receiver;
     char msg[SYSCALL_MSG_LEN];
 };
@@ -200,31 +201,35 @@ static void proc_yield()
 
 static int y_send(struct syscall *sc)
 {
-    external_handle();
     if (KERNEL_MSG_BUFF->in_use == 1)
     {
+        external_handle();
         return -1;
     }
 
     KERNEL_MSG_BUFF->in_use = 1;
+    KERNEL_MSG_BUFF->sender = curr_pid; // receiver may not know who is sending
     KERNEL_MSG_BUFF->receiver = sc->msg.receiver;
-    memcpy(&KERNEL_MSG_BUFF->msg, &sc->msg, sizeof(sc->msg));
 
-    external_handle();
+    memcpy(KERNEL_MSG_BUFF->msg, sc->msg.content, sizeof(sc->msg.content));
+
+    external_handle(); // may be a process sending message to be killed
     return 0;
 }
 
 static int y_recv(struct syscall *sc)
 {
-    external_handle();
     if (KERNEL_MSG_BUFF->in_use == 0 || KERNEL_MSG_BUFF->receiver != curr_pid)
     {
+        external_handle();
         return -1;
     }
 
     KERNEL_MSG_BUFF->in_use = 0;
-    memcpy(&sc->msg, &KERNEL_MSG_BUFF->msg, sizeof(sc->msg));
-    external_handle();
+
+    memcpy(sc->msg.content, KERNEL_MSG_BUFF->msg, sizeof(sc->msg.content));
+    sc->msg.sender = KERNEL_MSG_BUFF->sender;
+
     return 0;
 }
 
