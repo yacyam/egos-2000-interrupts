@@ -157,14 +157,7 @@ static void proc_yield()
         }
 
         if (next_idx == -1)
-        {
-            if (curr_status == PROC_RUNNING)
-            {
-                next_idx = proc_curr_idx;
-                break;
-            }
             proc_wait();
-        }
     }
 
     if (curr_status == PROC_RUNNING)

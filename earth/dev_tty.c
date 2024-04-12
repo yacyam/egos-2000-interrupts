@@ -29,7 +29,7 @@ struct tty_buff
 struct tty_buff tty_read_buf;
 struct tty_buff tty_write_buf;
 
-int uart_intrp();
+int uart_pend_intr();
 int uart_getc(int *c);
 int uart_putc(int c);
 void uart_init(long baud_rate);
@@ -60,15 +60,15 @@ void tty_write_kernel(char *msg, int len)
     {
         do
         {
-            rc = uart_putc(msg[i]);
-        } while (rc == RET_FAIL);
+            rc = uart_putc((int)msg[i]);
+        } while (rc == -1);
     }
 }
 
 void tty_write_uart()
 {
     int c, head_ptr, size;
-    int rc = RET_SUCCESS;
+    int rc = 0;
 
     head_ptr = tty_write_buf.head;
     size = tty_write_buf.size;
@@ -78,7 +78,7 @@ void tty_write_uart()
         c = (int)tty_write_buf.buf[head_ptr];
         rc = uart_putc(c);
 
-        if (rc == RET_FAIL)
+        if (rc == -1)
         {
             uart_txen();
             break;
@@ -88,7 +88,7 @@ void tty_write_uart()
         size--;
     };
 
-    if (rc == RET_SUCCESS)
+    if (rc == 0)
     {
         uart_txdis();
     }
@@ -120,17 +120,17 @@ void tty_write_buff(char *msg, int len)
 int tty_write(char *msg, int len)
 {
     if (len > TTY_BUFF_SIZE)
-        return RET_ERR;
+        return -2; // Error, Retry with smaller request
 
     if (len > TTY_BUFF_SIZE - tty_write_buf.size)
-        return RET_FAIL;
+        return -1;
 
     /* Write Contents into Buffer */
     tty_write_buff(msg, len);
     /* Write Buffer into UART0 */
     tty_write_uart();
 
-    return RET_SUCCESS;
+    return 0;
 }
 
 int tty_read_uart()
@@ -172,36 +172,14 @@ int tty_read(char *ret_val)
     return 0;
 }
 
-int tty_read_initial(char *buf, int len)
+void tty_read_kernel(char *buf, int len)
 {
-    for (int i = 0; i < len - 1; i++)
+    for (int i = 0; i < len; i++)
     {
         for (c = -1; c == -1; uart_getc(&c))
             ;
         buf[i] = (char)c;
-
-        switch (c)
-        {
-        case 0x03: /* Ctrl+C    */
-            buf[0] = 0;
-        case 0x0d: /* Enter     */
-            buf[i] = is_reading = 0;
-            printf("\r\n");
-            return c == 0x03 ? 0 : i;
-        case 0x7f: /* Backspace */
-            c = 0;
-            if (i)
-                printf("\b \b");
-            i = i ? i - 2 : i - 1;
-        }
-
-        if (c)
-            printf("%c", c);
-        fflush(stdout);
     }
-
-    buf[len - 1] = 0;
-    return len - 1;
 }
 
 #define LOG(x, y)           \
@@ -250,10 +228,10 @@ void tty_user_mode()
 int tty_handle_intr()
 {
     int rc, ip;
-    ip = uart_intrp();
+    ip = uart_pend_intr();
 
     if (ip & UART0_RX_INTR)
-        tty_read_uart();
+        rc = tty_read_uart();
     if (ip & UART0_TX_INTR)
         tty_write_uart();
     return rc;
@@ -272,8 +250,8 @@ void tty_init()
     tty_kernel_mode();
 
     earth->tty_read = tty_read;
-    earth->tty_read_initial = tty_read_initial;
     earth->tty_write = tty_write;
+    earth->tty_read_kernel = tty_read_kernel;
     earth->tty_write_kernel = tty_write_kernel;
     earth->tty_recv_intr = tty_recv_intr;
 

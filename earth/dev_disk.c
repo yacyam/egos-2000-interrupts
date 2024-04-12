@@ -49,10 +49,11 @@ void disk_init()
     earth->disk_write = disk_write;
 
     CRITICAL("Choose a disk:");
-    printf("Enter 0: microSD card\r\nEnter 1: on-board ROM\r\n");
+    printf("Enter 0: microSD card\n");
+    printf("Enter 1: on-board ROM\n");
 
-    char buf[2];
-    for (buf[0] = 0; buf[0] != '0' && buf[0] != '1'; earth->tty_read_initial(buf, 2))
+    char buf[1];
+    for (buf[0] = 0; buf[0] != '0' && buf[0] != '1'; earth->tty_read_kernel(buf, 1))
         ;
     type = (buf[0] == '0') ? SD_CARD : FLASH_ROM;
     INFO("%s is chosen", type == SD_CARD ? "microSD" : "on-board ROM");

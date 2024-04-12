@@ -36,14 +36,11 @@ void uart_init(long baud_rate)
     REGW(UART0_BASE, UART0_IE) |= 2;
 }
 
-int uart_intrp()
+int uart_pend_intr()
 {
     return REGW(UART0_BASE, UART0_IP);
 }
 
-/* PROBLEM: Uart device needs sufficient entries to be enqueued
-    to remove interrupt pending
-*/
 void uart_txen()
 {
     REGW(UART0_BASE, UART0_IE) |= 0x1;
@@ -69,6 +66,6 @@ int uart_putc(int c)
         return -1;
     }
 
-    REGW(UART0_BASE, UART0_TXDATA) = c; // need to change to amoor.w
+    REGW(UART0_BASE, UART0_TXDATA) = c;
     return 0;
 }

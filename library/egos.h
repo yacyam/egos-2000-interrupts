@@ -20,8 +20,8 @@ struct earth
 
     int (*tty_recv_intr)();
     int (*tty_read)(char *c);
-    int (*tty_read_initial)(char *buf, int len);
     int (*tty_write)(char *msg, int len);
+    void (*tty_read_kernel)(char *buf, int len);
     void (*tty_write_kernel)(char *msg, int len);
 
     void (*tty_kernel_mode)();
