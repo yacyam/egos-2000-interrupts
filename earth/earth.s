@@ -10,16 +10,8 @@
     .section .image.placeholder
     .section .text.enter
     .global earth_entry, trap_entry_vm, trap_entry_start
-earth_entry:
-    /* Disable machine interrupt */
-    li t0, 0x8
-    csrc mstatus, t0
 
-    /* Call main() of earth.c */
-    li sp, 0x80003f80
-    call main
-
-trap_entry_start:
+.macro TRAP_START
     /* Write User SP into MScratch */
     csrw mscratch, sp
     /* Adjust SP to top of Kernel Stack */
@@ -64,6 +56,19 @@ trap_entry_start:
     sw t1, 48(t0)
     /* Write Updated User SP into MScratch */
     csrw mscratch, t0
+.endm
+
+earth_entry:
+    /* Disable machine interrupt */
+    li t0, 0x8
+    csrc mstatus, t0
+
+    /* Call main() of earth.c */
+    li sp, 0x80003f80
+    call main
+
+trap_entry_start:
+    TRAP_START
     j trap_entry
 
 trap_entry_vm:
@@ -76,4 +81,5 @@ trap_entry_vm:
 
     /* Jump to trap_entry() without modifying any registers */
     csrr t0, mscratch
+    TRAP_START
     j trap_entry

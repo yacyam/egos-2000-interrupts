@@ -32,12 +32,18 @@ void trap_entry_vm(); /* This wrapper function is defined in earth.S */
 void trap_entry_start();
 void trap_entry()
 {
-    int mcause;
+    int mcause, mepc;
     earth->tty_kernel_mode();
 
     asm("csrr %0, mcause" : "=r"(mcause));
 
     int id = mcause & 0x3FF;
+
+    if (id == 13)
+    {
+        asm("csrr %0, mepc" : "=r"(mepc));
+        CRITICAL("MEPC: %x", mepc);
+    }
 
     if (mcause & (1 << 31))
         (intr_handler) ? intr_handler(id) : FATAL("trap_entry: interrupt handler not registered");

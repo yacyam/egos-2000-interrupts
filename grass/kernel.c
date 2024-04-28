@@ -63,7 +63,7 @@ void intr_entry(int id)
     {
         /* Do not interrupt kernel processes since IO can be stateful */
         earth->timer_reset();
-        return;
+        ctx_jump();
     }
 
     if (earth->tty_recv_intr() && curr_pid >= GPID_USER_START)
@@ -80,7 +80,8 @@ void intr_entry(int id)
         kernel_entry = proc_yield;
     else if (id == INTR_ID_EXTERNAL)
         kernel_entry = proc_external;
-    // FATAL("intr_entry: got unknown interrupt %d", id);
+    else
+        FATAL("intr_entry: got unknown interrupt %d", id);
 
     ctx_entry();
 }
