@@ -34,12 +34,16 @@ int _write(int file, char *ptr, int len)
         return -1;
 
     if (is_kernel)
+        return earth->tty_write_kernel(ptr, len);
+
+    if (len > DEV_BUFF_SIZE)
     {
-        earth->tty_write_kernel(ptr, len);
-        return 0;
+        grass->sys_tty_write(ptr, DEV_BUFF_SIZE);
+        return DEV_BUFF_SIZE;
     }
 
-    return grass->sys_tty_write(ptr, len);
+    grass->sys_tty_write(ptr, len);
+    return len; // Printf() Expects Amount of Input Written as Return Code
 }
 
 int _close(int file) { return -1; }

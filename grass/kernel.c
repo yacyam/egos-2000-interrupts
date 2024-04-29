@@ -275,6 +275,11 @@ static void syscall_ret()
 
     if (rc == 0)
         proc_set_runnable(curr_pid);
+    else if (rc == -2)
+    {
+        proc_set_runnable(curr_pid);
+        sc->retval = -1;
+    }
     else
         sc->type = type;
 }

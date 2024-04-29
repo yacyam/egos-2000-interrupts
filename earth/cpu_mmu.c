@@ -214,8 +214,7 @@ void mmu_init()
 
     /* Choose memory translation mechanism in QEMU */
     CRITICAL("Choose a memory translation mechanism:");
-    printf("Enter 0: page tables\n");
-    printf("Enter 1: software TLB\n");
+    printf("Enter 0: page tables\r\nEnter 1: software TLB\r\n");
 
     char buf[1];
     for (buf[0] = 0; buf[0] != '0' && buf[0] != '1'; earth->tty_read_kernel(buf, 1))

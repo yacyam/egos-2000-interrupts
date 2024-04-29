@@ -22,7 +22,7 @@ struct earth
     int (*tty_read)(char *c);
     int (*tty_write)(char *msg, int len);
     void (*tty_read_kernel)(char *buf, int len);
-    void (*tty_write_kernel)(char *msg, int len);
+    int (*tty_write_kernel)(char *msg, int len);
 
     void (*tty_kernel_mode)();
     void (*tty_user_mode)();
@@ -90,6 +90,8 @@ extern struct grass *grass;
 #define GRASS_ENTRY 0x08002800 /* 8KB    grass code+data       */
                                /* 12KB   earth data            */
                                /* earth code is in QSPI flash  */
+
+#define DEV_BUFF_SIZE 128
 
 #ifndef LIBC_STDIO
 /* Only earth/dev_tty.c uses LIBC_STDIO and does not need these macros */

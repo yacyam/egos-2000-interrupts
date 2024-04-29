@@ -10,7 +10,6 @@
  */
 
 #define LIBC_STDIO
-#define TTY_BUFF_SIZE 128
 #define UART0_RX_INTR 2
 #define UART0_TX_INTR 1
 #include "egos.h"
@@ -20,7 +19,7 @@
 
 struct tty_buff
 {
-    char buf[TTY_BUFF_SIZE];
+    char buf[DEV_BUFF_SIZE];
     int size;
     int head;
     int tail;
@@ -42,7 +41,7 @@ int tty_recv_intr() { return (is_reading) ? 0 : (uart_getc(&c) == 3); }
 
 void tty_buff_init()
 {
-    for (int i = 0; i < TTY_BUFF_SIZE; i++)
+    for (int i = 0; i < DEV_BUFF_SIZE; i++)
     {
         tty_read_buf.buf[i] = 0;
         tty_write_buf.buf[i] = 0;
@@ -53,16 +52,17 @@ void tty_buff_init()
     tty_read_buf.tail = tty_write_buf.tail = 0;
 }
 
-void tty_write_kernel(char *msg, int len)
+int tty_write_kernel(char *msg, int len)
 {
     int rc;
     for (int i = 0; i < len; i++)
     {
         do
         {
-            rc = uart_putc((int)msg[i]);
+            rc = uart_putc(msg[i]);
         } while (rc == -1);
     }
+    return len;
 }
 
 void tty_write_uart()
@@ -84,7 +84,7 @@ void tty_write_uart()
             break;
         }
 
-        head_ptr = (head_ptr + 1) % TTY_BUFF_SIZE;
+        head_ptr = (head_ptr + 1) % DEV_BUFF_SIZE;
         size--;
     };
 
@@ -106,9 +106,9 @@ void tty_write_buff(char *msg, int len)
     for (int i = 0; i < len; i++)
     {
         tty_write_buf.buf[tail_ptr] = msg[i];
-        if (size < TTY_BUFF_SIZE)
+        if (size < DEV_BUFF_SIZE)
         {
-            tail_ptr = (tail_ptr + 1) % TTY_BUFF_SIZE;
+            tail_ptr = (tail_ptr + 1) % DEV_BUFF_SIZE;
             size++;
         }
     }
@@ -119,10 +119,10 @@ void tty_write_buff(char *msg, int len)
 
 int tty_write(char *msg, int len)
 {
-    if (len > TTY_BUFF_SIZE)
+    if (len > DEV_BUFF_SIZE)
         return -2; // Error, Retry with smaller request
 
-    if (len > TTY_BUFF_SIZE - tty_write_buf.size)
+    if (len > DEV_BUFF_SIZE - tty_write_buf.size)
         return -1;
 
     /* Write Contents into Buffer */
@@ -145,9 +145,9 @@ int tty_read_uart()
     {
         tty_read_buf.buf[tail_ptr] = (char)c;
 
-        if (tty_read_buf.size < TTY_BUFF_SIZE)
+        if (tty_read_buf.size < DEV_BUFF_SIZE)
         {
-            tail_ptr = (tail_ptr + 1) % TTY_BUFF_SIZE;
+            tail_ptr = (tail_ptr + 1) % DEV_BUFF_SIZE;
             tty_read_buf.size++;
         }
     } while (uart_getc(&c) != -1);
@@ -166,7 +166,7 @@ int tty_read(char *ret_val)
 
     tty_read_buf.buf[head_ptr] = 0;
 
-    tty_read_buf.head = (head_ptr + 1) % TTY_BUFF_SIZE;
+    tty_read_buf.head = (head_ptr + 1) % DEV_BUFF_SIZE;
 
     tty_read_buf.size--;
     return 0;
