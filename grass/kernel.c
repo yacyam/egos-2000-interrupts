@@ -11,6 +11,7 @@
  */
 
 #include "egos.h"
+#include "character.h"
 #include "process.h"
 #include "syscall.h"
 #include <string.h>
@@ -66,14 +67,6 @@ void intr_entry(int id)
         ctx_jump();
     }
 
-    if (earth->tty_recv_intr() && curr_pid >= GPID_USER_START)
-    {
-        /* User process killed by ctrl+c interrupt */
-        INFO("process %d killed by interrupt", curr_pid);
-        asm("csrw mepc, %0" ::"r"(0x800500C));
-        return;
-    }
-
     if (id == INTR_ID_SOFT)
         kernel_entry = proc_syscall;
     else if (id == INTR_ID_TIMER)
@@ -107,11 +100,27 @@ void ctx_entry()
     ctx_jump();
 }
 
+int special_handle()
+{
+    char special_char;
+    earth->tty_read(&special_char);
+    for (int i = 0; i < MAX_NPROCESS; i++)
+        if (proc_set[i].killable)
+        {
+            CRITICAL("Proc %d Interrupted", proc_set[i].pid);
+            proc_set[i].mepc = sys_exit;
+            proc_set_runnable(proc_set[i].pid);
+        }
+    return 0;
+}
+
 int external_handle()
 {
-    int rc;
+    int rc = earth->trap_external();
     int orig_proc_idx = proc_curr_idx;
-    earth->trap_external();
+
+    if (rc == RET_SPECIAL_CHAR && curr_pid != GPID_SHELL)
+        special_handle();
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
@@ -189,7 +198,6 @@ static void proc_yield()
         asm("csrw mepc, %0" ::"r"(APPS_ENTRY));
         asm("mret");
     }
-
     proc_set_running(curr_pid);
 }
 

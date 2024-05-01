@@ -12,8 +12,6 @@ enum
     PROC_READY,   /* finished loading elf and wait for first running */
     PROC_RUNNING,
     PROC_RUNNABLE,
-    PROC_WAIT_TO_SEND,
-    PROC_WAIT_TO_RECV,
     PROC_REQUESTING
 };
 
@@ -21,9 +19,9 @@ struct process
 {
     int pid;
     int status;
-    int receiver_pid; /* used when waiting to send a message */
-    void *sp, *mepc;  /* process context = stack pointer (sp)
-                       * + machine exception program counter (mepc) */
+    int killable;
+    void *sp, *mepc; /* process context = stack pointer (sp)
+                      * + machine exception program counter (mepc) */
 };
 
 #define MAX_NPROCESS 16

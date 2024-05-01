@@ -32,6 +32,7 @@ int proc_alloc()
         {
             proc_set[i].pid = ++proc_nprocs;
             proc_set[i].status = PROC_LOADING;
+            proc_set[i].killable = proc_set[i].pid >= GPID_USER_START;
             return proc_nprocs;
         }
 

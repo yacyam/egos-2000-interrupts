@@ -13,9 +13,10 @@
 #define UART0_RX_INTR 2
 #define UART0_TX_INTR 1
 #include "egos.h"
+#include "character.h"
+#include "print.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include "../library/libc/print.h"
 
 struct tty_buff
 {
@@ -139,20 +140,29 @@ int tty_read_uart()
     if (c == -1)
         return -1;
 
-    int tail_ptr = tty_read_buf.tail;
+    int tail = tty_read_buf.tail;
+
+    /* Put Special Character into Buffer for Subsequent Read by Kernel */
+    if (c == SPECIAL_CTRL_C)
+    {
+        tty_read_buf.buf[tail] = (char)c;
+        tty_read_buf.tail = (tail + 1) % DEV_BUFF_SIZE;
+        tty_read_buf.size++;
+        return RET_SPECIAL_CHAR;
+    }
 
     do
     {
-        tty_read_buf.buf[tail_ptr] = (char)c;
+        tty_read_buf.buf[tail] = (char)c;
 
         if (tty_read_buf.size < DEV_BUFF_SIZE)
         {
-            tail_ptr = (tail_ptr + 1) % DEV_BUFF_SIZE;
+            tail = (tail + 1) % DEV_BUFF_SIZE;
             tty_read_buf.size++;
         }
     } while (uart_getc(&c) != -1);
 
-    tty_read_buf.tail = tail_ptr;
+    tty_read_buf.tail = tail;
     return 0;
 }
 
