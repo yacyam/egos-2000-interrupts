@@ -29,6 +29,14 @@ struct tty_buff
 struct tty_buff tty_read_buf;
 struct tty_buff tty_write_buf;
 
+#define rx_head tty_read_buf.head
+#define rx_tail tty_read_buf.tail
+#define rx_size tty_read_buf.size
+
+#define tx_head tty_write_buf.head
+#define tx_tail tty_write_buf.tail
+#define tx_size tty_write_buf.size
+
 int uart_pend_intr();
 int uart_getc(int *c);
 int uart_putc(int c);
@@ -37,20 +45,16 @@ void uart_init(long baud_rate);
 void uart_txen();
 void uart_txdis();
 
-static int c, is_reading;
-int tty_recv_intr() { return (is_reading) ? 0 : (uart_getc(&c) == 3); }
+static int c;
 
 void tty_buff_init()
 {
     for (int i = 0; i < DEV_BUFF_SIZE; i++)
-    {
-        tty_read_buf.buf[i] = 0;
-        tty_write_buf.buf[i] = 0;
-    }
+        tty_read_buf.buf[i] = tty_write_buf.buf[i] = 0;
 
-    tty_read_buf.size = tty_write_buf.size = 0;
-    tty_read_buf.head = tty_write_buf.head = 0;
-    tty_read_buf.tail = tty_write_buf.tail = 0;
+    rx_size = tx_size = 0;
+    rx_head = tx_head = 0;
+    rx_tail = tx_tail = 0;
 }
 
 int tty_write_kernel(char *msg, int len)
@@ -63,20 +67,16 @@ int tty_write_kernel(char *msg, int len)
             rc = uart_putc(msg[i]);
         } while (rc == -1);
     }
-    return len;
+    return len; // Must Return Length of Message Written to _write()
 }
 
 void tty_write_uart()
 {
-    int c, head_ptr, size;
-    int rc = 0;
+    int c, rc = 0;
 
-    head_ptr = tty_write_buf.head;
-    size = tty_write_buf.size;
-
-    while (size > 0)
+    while (tx_size > 0)
     {
-        c = (int)tty_write_buf.buf[head_ptr];
+        c = (int)tty_write_buf.buf[tx_head];
         rc = uart_putc(c);
 
         if (rc == -1)
@@ -85,37 +85,25 @@ void tty_write_uart()
             break;
         }
 
-        head_ptr = (head_ptr + 1) % DEV_BUFF_SIZE;
-        size--;
+        tx_head = (tx_head + 1) % DEV_BUFF_SIZE;
+        tx_size--;
     };
 
     if (rc == 0)
-    {
         uart_txdis();
-    }
-
-    tty_write_buf.head = head_ptr;
-    tty_write_buf.size = size;
 }
 
 void tty_write_buff(char *msg, int len)
 {
-    int tail_ptr, size;
-    tail_ptr = tty_write_buf.tail;
-    size = tty_write_buf.size;
-
     for (int i = 0; i < len; i++)
     {
-        tty_write_buf.buf[tail_ptr] = msg[i];
-        if (size < DEV_BUFF_SIZE)
+        tty_write_buf.buf[tx_tail] = msg[i];
+        if (tx_size < DEV_BUFF_SIZE)
         {
-            tail_ptr = (tail_ptr + 1) % DEV_BUFF_SIZE;
-            size++;
+            tx_tail = (tx_tail + 1) % DEV_BUFF_SIZE;
+            tx_size++;
         }
     }
-
-    tty_write_buf.tail = tail_ptr;
-    tty_write_buf.size = size;
 }
 
 int tty_write(char *msg, int len)
@@ -123,7 +111,7 @@ int tty_write(char *msg, int len)
     if (len > DEV_BUFF_SIZE)
         return -2; // Error, Retry with smaller request
 
-    if (len > DEV_BUFF_SIZE - tty_write_buf.size)
+    if (len > DEV_BUFF_SIZE - tx_size)
         return -1;
 
     /* Write Contents into Buffer */
@@ -140,45 +128,34 @@ int tty_read_uart()
     if (c == -1)
         return -1;
 
-    int tail = tty_read_buf.tail;
-
-    /* Put Special Character into Buffer for Subsequent Read by Kernel */
+    /* Return to Kernel To Kill Killable Processes */
     if (c == SPECIAL_CTRL_C)
-    {
-        tty_read_buf.buf[tail] = (char)c;
-        tty_read_buf.tail = (tail + 1) % DEV_BUFF_SIZE;
-        tty_read_buf.size++;
         return RET_SPECIAL_CHAR;
-    }
 
     do
     {
-        tty_read_buf.buf[tail] = (char)c;
+        tty_read_buf.buf[rx_tail] = (char)c;
 
-        if (tty_read_buf.size < DEV_BUFF_SIZE)
+        if (rx_size < DEV_BUFF_SIZE)
         {
-            tail = (tail + 1) % DEV_BUFF_SIZE;
-            tty_read_buf.size++;
+            rx_tail = (rx_tail + 1) % DEV_BUFF_SIZE;
+            rx_size++;
         }
     } while (uart_getc(&c) != -1);
 
-    tty_read_buf.tail = tail;
     return 0;
 }
 
 int tty_read(char *ret_val)
 {
-    if (tty_read_buf.size == 0)
+    if (rx_size == 0)
         return -1;
 
-    int head_ptr = tty_read_buf.head;
-    *ret_val = (char)tty_read_buf.buf[head_ptr];
+    *ret_val = (char)tty_read_buf.buf[rx_head];
 
-    tty_read_buf.buf[head_ptr] = 0;
-
-    tty_read_buf.head = (head_ptr + 1) % DEV_BUFF_SIZE;
-
-    tty_read_buf.size--;
+    tty_read_buf.buf[rx_head] = 0; // Flush Out Read Contents
+    rx_head = (rx_head + 1) % DEV_BUFF_SIZE;
+    rx_size--;
     return 0;
 }
 
@@ -263,7 +240,6 @@ void tty_init()
     earth->tty_write = tty_write;
     earth->tty_read_kernel = tty_read_kernel;
     earth->tty_write_kernel = tty_write_kernel;
-    earth->tty_recv_intr = tty_recv_intr;
 
     earth->tty_kernel_mode = tty_kernel_mode;
     earth->tty_user_mode = tty_user_mode;

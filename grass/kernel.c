@@ -11,6 +11,7 @@
  */
 
 #include "egos.h"
+#include "print.h"
 #include "character.h"
 #include "process.h"
 #include "syscall.h"
@@ -28,7 +29,7 @@ void excp_entry(int id)
     /* Otherwise, kill the process if curr_pid is a user application */
 
     /* Student's code ends here. */
-    FATAL("excp_entry: kernel got exception %d", id);
+    // FATAL("excp_entry: kernel exception %d", id);
 }
 
 #define INTR_ID_SOFT 3
@@ -74,7 +75,7 @@ void intr_entry(int id)
     else if (id == INTR_ID_EXTERNAL)
         kernel_entry = proc_external;
     else
-        FATAL("intr_entry: got unknown interrupt %d", id);
+        FATAL("intr_entry: unknown interrupt %d", id);
 
     ctx_entry();
 }
@@ -103,14 +104,20 @@ void ctx_entry()
 int special_handle()
 {
     char special_char;
-    earth->tty_read(&special_char);
+
     for (int i = 0; i < MAX_NPROCESS; i++)
-        if (proc_set[i].killable)
-        {
-            CRITICAL("Proc %d Interrupted", proc_set[i].pid);
-            proc_set[i].mepc = sys_exit;
-            proc_set_runnable(proc_set[i].pid);
-        }
+    {
+        struct process proc = proc_set[i];
+        if (!proc.killable)
+            continue;
+
+        if (proc.status == PROC_UNUSED || proc.status == PROC_LOADING)
+            continue;
+
+        CRITICAL("Process %d Interrupted", proc_set[i].pid);
+        proc_set[i].mepc = _exit;
+        proc_set_runnable(proc_set[i].pid);
+    }
     return 0;
 }
 
@@ -153,13 +160,15 @@ void proc_wait()
 static void proc_yield()
 {
     /* Find the next runnable process */
-    int next_idx = -1;
+    int next_status, next_idx = -1;
+    external_handle(); // Run External Handler At Least Once
+
     while (next_idx == -1)
     {
         for (int i = 1; i <= MAX_NPROCESS; i++)
         {
-            int s = proc_set[(proc_curr_idx + i) % MAX_NPROCESS].status;
-            if (s == PROC_READY || s == PROC_RUNNING || s == PROC_RUNNABLE)
+            next_status = proc_set[(proc_curr_idx + i) % MAX_NPROCESS].status;
+            if (next_status == PROC_READY || next_status == PROC_RUNNING || next_status == PROC_RUNNABLE)
             {
                 next_idx = (proc_curr_idx + i) % MAX_NPROCESS;
                 break;
@@ -187,10 +196,10 @@ static void proc_yield()
     /* Student's code ends here. */
 
     /* Call the entry point for newly created process */
-    if (curr_status == PROC_READY)
+    proc_set_running(curr_pid);
+    if (next_status == PROC_READY)
     {
         earth->tty_user_mode();
-        proc_set_running(curr_pid);
         /* Prepare argc and argv */
         asm("mv a0, %0" ::"r"(APPS_ARG));
         asm("mv a1, %0" ::"r"(APPS_ARG + 4));
@@ -198,14 +207,12 @@ static void proc_yield()
         asm("csrw mepc, %0" ::"r"(APPS_ENTRY));
         asm("mret");
     }
-    proc_set_running(curr_pid);
 }
 
 static int y_send(struct syscall *sc)
 {
     if (KERNEL_MSG_BUFF->in_use == 1)
     {
-        external_handle();
         return -1;
     }
 
@@ -214,24 +221,23 @@ static int y_send(struct syscall *sc)
     KERNEL_MSG_BUFF->receiver = sc->msg.receiver;
 
     memcpy(KERNEL_MSG_BUFF->msg, sc->msg.content, sizeof(sc->msg.content));
-
-    external_handle(); // may be a process sending message to be killed
     return 0;
 }
 
 static int y_recv(struct syscall *sc)
 {
+    /* No Message Available, or not for Current Process */
     if (KERNEL_MSG_BUFF->in_use == 0 || KERNEL_MSG_BUFF->receiver != curr_pid)
-    {
-        external_handle();
         return -1;
-    }
 
     KERNEL_MSG_BUFF->in_use = 0;
 
     memcpy(sc->msg.content, KERNEL_MSG_BUFF->msg, sizeof(sc->msg.content));
     sc->msg.sender = KERNEL_MSG_BUFF->sender;
 
+    // Can run into diabolical case where the the process that was
+    // Just killed is continually scheduled by timer and waiting in while loop, so we do not
+    // Ever call to external handler
     return 0;
 }
 

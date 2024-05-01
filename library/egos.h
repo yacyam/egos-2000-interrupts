@@ -18,7 +18,6 @@ struct earth
     int (*disk_read)(int block_no, int nblocks, char *dst);
     int (*disk_write)(int block_no, int nblocks, char *src);
 
-    int (*tty_recv_intr)();
     int (*tty_read)(char *c);
     int (*tty_write)(char *msg, int len);
     void (*tty_read_kernel)(char *buf, int len);
