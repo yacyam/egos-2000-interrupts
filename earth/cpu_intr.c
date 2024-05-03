@@ -55,6 +55,8 @@ int trap_external()
     case PLIC_UART0_ID:
         rc = tty_handle_intr();
         break;
+    default:
+        rc = 0;
     }
 
     REGW(PLIC_CLAIM_BASE, 0) = intr_cause; // Interrupt Pending Bit is Cleared

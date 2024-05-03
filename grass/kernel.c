@@ -101,31 +101,36 @@ void ctx_entry()
     ctx_jump();
 }
 
-int special_handle()
+void proc_idle()
+{
+    while (1)
+        ;
+}
+
+void special_handle()
 {
     char special_char = earth->tty_read_tail(&special_char); // Special Character Enqueued onto Tail
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
         // TODO: When killing more than 2 processes at once, it loops
-        struct process proc = proc_set[i];
-        if (!proc.killable)
+        struct process *proc = &proc_set[i];
+        if (!proc->killable)
             continue;
 
-        if (proc.status == PROC_UNUSED || proc.status == PROC_LOADING)
+        if (proc->status == PROC_UNUSED || proc->status == PROC_LOADING)
             continue;
 
-        /*
-            Can possibly deadlock, if multiple user processes try to write into
-            the message buffer when exiting, one succeeds, but then the second
-            user process sends the message into the buffer while GPID_PROC
-            is attempting to also send into Buffer.
-        */
-        CRITICAL("Process %d Interrupted", proc_set[i].pid);
-        proc_set[i].mepc = _exit;
-        proc_set_runnable(proc_set[i].pid);
+        /* Must be a user process, force to send KILLALL Message */
+        earth->mmu_switch(proc->pid);
+        struct proc_request req;
+        req.type = PROC_KILLALL;
+        memcpy(sc->msg.content, &req, sizeof(req));
+        sc->type = SYS_SEND;
+        proc_set_requesting(proc->pid);
+        proc->mepc = proc_idle;
+        return;
     }
-    return 0;
 }
 
 int external_handle()
@@ -133,8 +138,11 @@ int external_handle()
     int rc = earth->trap_external();
     int orig_proc_idx = proc_curr_idx;
 
-    if (rc == RET_SPECIAL_CHAR && curr_pid != GPID_SHELL)
+    if (rc == RET_SPECIAL_CHAR)
+    {
+        SUCCESS("here");
         special_handle();
+    }
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
@@ -269,7 +277,6 @@ static int proc_tty_write(struct syscall *sc)
 
 static void syscall_ret()
 {
-    struct syscall *sc = (struct syscall *)SYSCALL_ARG;
     int rc = -1;
 
     int type = sc->type;

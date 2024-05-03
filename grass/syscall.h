@@ -2,6 +2,8 @@
 
 #include "servers.h"
 
+static struct syscall *sc = (struct syscall *)SYSCALL_ARG;
+
 enum syscall_type
 {
     SYS_UNUSED,

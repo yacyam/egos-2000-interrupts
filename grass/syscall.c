@@ -11,8 +11,6 @@
 #include "syscall.h"
 #include <string.h>
 
-static struct syscall *sc = (struct syscall *)SYSCALL_ARG;
-
 static void sys_invoke()
 {
     /* The standard way of system call is using the `ecall` instruction;
