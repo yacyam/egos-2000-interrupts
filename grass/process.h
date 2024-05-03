@@ -12,7 +12,8 @@ enum
     PROC_READY,   /* finished loading elf and wait for first running */
     PROC_RUNNING,
     PROC_RUNNABLE,
-    PROC_REQUESTING
+    PROC_REQUESTING,
+    PROC_ZOMBIE
 };
 
 struct process
@@ -39,6 +40,7 @@ void proc_set_ready(int);
 void proc_set_running(int);
 void proc_set_runnable(int);
 void proc_set_requesting(int);
+void proc_set_zombie(int);
 
 void ctx_entry(void);
 void ctx_jump();

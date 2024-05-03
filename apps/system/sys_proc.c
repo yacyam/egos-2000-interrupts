@@ -45,6 +45,7 @@ int main()
             reply->type = app_spawn(req) < 0 ? CMD_ERROR : CMD_OK;
 
             /* Handling background processes */
+            // Sending kill message before we send an ok message to shell hangs
             shell_waiting = (req->argv[req->argc - 1][0] != '&');
             if (!shell_waiting && app_pid > 0)
                 INFO("process %d running in the background", app_pid);
@@ -60,6 +61,8 @@ int main()
             break;
         case PROC_KILLALL:
             grass->proc_free(-1);
+            if (shell_waiting)
+                grass->sys_send(GPID_SHELL, (void *)reply, sizeof(reply));
             break;
         default:
             FATAL("sys_proc: invalid request %d", req->type);

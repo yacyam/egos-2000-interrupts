@@ -140,9 +140,7 @@ int tty_read_uart()
 
         /* Return to Kernel To Kill Killable Processes */
         if (c == SPECIAL_CTRL_C)
-        {
-            return SPECIAL_CTRL_C;
-        }
+            return RET_SPECIAL_CHAR;
 
     } while (uart_getc(&c) != -1);
 

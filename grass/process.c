@@ -23,6 +23,7 @@ void proc_set_ready(int pid) { proc_set_status(pid, PROC_READY); }
 void proc_set_running(int pid) { proc_set_status(pid, PROC_RUNNING); }
 void proc_set_runnable(int pid) { proc_set_status(pid, PROC_RUNNABLE); }
 void proc_set_requesting(int pid) { proc_set_status(pid, PROC_REQUESTING); }
+void proc_set_zombie(int pid) { proc_set_status(pid, PROC_ZOMBIE); }
 
 int proc_alloc()
 {

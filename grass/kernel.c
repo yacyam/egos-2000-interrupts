@@ -109,11 +109,10 @@ void proc_idle()
 
 void special_handle()
 {
-    char special_char = earth->tty_read_tail(&special_char); // Special Character Enqueued onto Tail
+    int killall_sent = 0;
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
-        // TODO: When killing more than 2 processes at once, it loops
         struct process *proc = &proc_set[i];
         if (!proc->killable)
             continue;
@@ -121,15 +120,24 @@ void special_handle()
         if (proc->status == PROC_UNUSED || proc->status == PROC_LOADING)
             continue;
 
+        if (killall_sent)
+        {
+            proc_set_zombie(proc->pid); // Set Remaining Killable Processes as Zombies
+            continue;
+        }
+
         /* Must be a user process, force to send KILLALL Message */
         earth->mmu_switch(proc->pid);
+
         struct proc_request req;
         req.type = PROC_KILLALL;
         memcpy(sc->msg.content, &req, sizeof(req));
         sc->type = SYS_SEND;
+
         proc_set_requesting(proc->pid);
         proc->mepc = proc_idle;
-        return;
+
+        killall_sent++;
     }
 }
 
@@ -139,10 +147,7 @@ int external_handle()
     int orig_proc_idx = proc_curr_idx;
 
     if (rc == RET_SPECIAL_CHAR)
-    {
-        SUCCESS("here");
         special_handle();
-    }
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
@@ -251,9 +256,6 @@ static int y_recv(struct syscall *sc)
     memcpy(sc->msg.content, KERNEL_MSG_BUFF->msg, sizeof(sc->msg.content));
     sc->msg.sender = KERNEL_MSG_BUFF->sender;
 
-    // Can run into diabolical case where the the process that was
-    // Just killed is continually scheduled by timer and waiting in while loop, so we do not
-    // Ever call to external handler
     return 0;
 }
 
