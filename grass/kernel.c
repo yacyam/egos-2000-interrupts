@@ -29,7 +29,7 @@ void excp_entry(int id)
     /* Otherwise, kill the process if curr_pid is a user application */
 
     /* Student's code ends here. */
-    // FATAL("excp_entry: kernel exception %d", id);
+    FATAL("excp_entry: kernel exception %d", id);
 }
 
 #define INTR_ID_SOFT 3
@@ -103,10 +103,11 @@ void ctx_entry()
 
 int special_handle()
 {
-    char special_char;
+    char special_char = earth->tty_read_tail(&special_char); // Special Character Enqueued onto Tail
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
+        // TODO: When killing more than 2 processes at once, it loops
         struct process proc = proc_set[i];
         if (!proc.killable)
             continue;
@@ -114,6 +115,12 @@ int special_handle()
         if (proc.status == PROC_UNUSED || proc.status == PROC_LOADING)
             continue;
 
+        /*
+            Can possibly deadlock, if multiple user processes try to write into
+            the message buffer when exiting, one succeeds, but then the second
+            user process sends the message into the buffer while GPID_PROC
+            is attempting to also send into Buffer.
+        */
         CRITICAL("Process %d Interrupted", proc_set[i].pid);
         proc_set[i].mepc = _exit;
         proc_set_runnable(proc_set[i].pid);
@@ -161,7 +168,7 @@ static void proc_yield()
 {
     /* Find the next runnable process */
     int next_status, next_idx = -1;
-    external_handle(); // Run External Handler At Least Once
+    external_handle(); // Call External Handler to Run Possible Requesters
 
     while (next_idx == -1)
     {
@@ -197,6 +204,7 @@ static void proc_yield()
 
     /* Call the entry point for newly created process */
     proc_set_running(curr_pid);
+
     if (next_status == PROC_READY)
     {
         earth->tty_user_mode();

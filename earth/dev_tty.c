@@ -128,10 +128,6 @@ int tty_read_uart()
     if (c == -1)
         return -1;
 
-    /* Return to Kernel To Kill Killable Processes */
-    if (c == SPECIAL_CTRL_C)
-        return RET_SPECIAL_CHAR;
-
     do
     {
         tty_read_buf.buf[rx_tail] = (char)c;
@@ -141,6 +137,11 @@ int tty_read_uart()
             rx_tail = (rx_tail + 1) % DEV_BUFF_SIZE;
             rx_size++;
         }
+
+        /* Return to Kernel To Kill Killable Processes */
+        if (c == SPECIAL_CTRL_C)
+            return SPECIAL_CTRL_C;
+
     } while (uart_getc(&c) != -1);
 
     return 0;
@@ -156,6 +157,20 @@ int tty_read(char *ret_val)
     tty_read_buf.buf[rx_head] = 0; // Flush Out Read Contents
     rx_head = (rx_head + 1) % DEV_BUFF_SIZE;
     rx_size--;
+    return 0;
+}
+
+int tty_read_tail(char *ret_val)
+{
+    if (rx_size == 0)
+        return -1;
+
+    rx_tail = rx_tail == 0 ? DEV_BUFF_SIZE - 1 : rx_tail - 1;
+
+    *ret_val = tty_read_buf.buf[rx_tail];
+    tty_read_buf.buf[rx_tail] = 0;
+    rx_size--;
+
     return 0;
 }
 
@@ -238,6 +253,8 @@ void tty_init()
 
     earth->tty_read = tty_read;
     earth->tty_write = tty_write;
+
+    earth->tty_read_tail = tty_read_tail;
     earth->tty_read_kernel = tty_read_kernel;
     earth->tty_write_kernel = tty_write_kernel;
 
