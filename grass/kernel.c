@@ -54,7 +54,7 @@ struct kernel_msg *KERNEL_MSG_BUFF =
 
 static int proc_tty_read(struct syscall *sc);
 static int proc_tty_write(struct syscall *sc);
-static void syscall_ret();
+static void syscall_handle();
 
 int proc_curr_idx;
 struct process proc_set[MAX_NPROCESS];
@@ -155,7 +155,7 @@ int external_handle()
         {
             proc_curr_idx = i;
             earth->mmu_switch(proc_set[i].pid);
-            syscall_ret();
+            syscall_handle();
         }
     }
 
@@ -277,7 +277,7 @@ static int proc_tty_write(struct syscall *sc)
     return earth->tty_write(msg, len);
 }
 
-static void syscall_ret()
+static void syscall_handle()
 {
     int rc = -1;
 
@@ -306,13 +306,13 @@ static void syscall_ret()
 
     if (rc == 0)
         proc_set_runnable(curr_pid);
-    else if (rc == -2)
+    else if (rc == -1)
+        sc->type = type; // Failure, Keep Requesting, Retry Request on External Interrupt
+    else
     {
-        proc_set_runnable(curr_pid);
+        proc_set_runnable(curr_pid); // Error, Request Will Never Succeed
         sc->retval = -1;
     }
-    else
-        sc->type = type;
 }
 
 static void proc_syscall()
