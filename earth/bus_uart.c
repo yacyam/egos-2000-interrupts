@@ -54,7 +54,7 @@ void uart_txdis()
 int uart_getc(int *c)
 {
     int ch = REGW(UART0_BASE, UART0_RXDATA);
-    return *c = (ch & (1 << 31)) ? -1 : (ch & 0xFF);
+    return *c = (ch & (1 << 31)) ? -1 : (ch & 0xFF); /* Bit 31 Indicates if Empty */
 }
 
 int uart_putc(int c)
@@ -62,9 +62,7 @@ int uart_putc(int c)
     int is_full = (REGW(UART0_BASE, UART0_TXDATA) & (1 << 31));
 
     if (is_full)
-    {
         return -1;
-    }
 
     REGW(UART0_BASE, UART0_TXDATA) = c;
     return 0;

@@ -29,7 +29,7 @@ void excp_entry(int id)
     /* Otherwise, kill the process if curr_pid is a user application */
 
     /* Student's code ends here. */
-    FATAL("excp_entry: kernel exception %d", id);
+    // FATAL("excp_entry: kernel exception %d", id);
 }
 
 #define INTR_ID_SOFT 3
@@ -109,24 +109,28 @@ void proc_idle()
 
 void special_handle()
 {
+    char c;
     int killall_sent = 0;
 
     for (int i = 0; i < MAX_NPROCESS; i++)
     {
         struct process *proc = &proc_set[i];
-        if (!proc->killable)
+        /* Sending Kill Message while Server Process Active Deadlocks */
+        if (proc->pid <= GPID_SHELL && proc->status != PROC_UNUSED && proc->status != PROC_REQUESTING)
+            return;
+
+        /* Leave Non-Killable Processes Alone */
+        if (!proc->killable || proc->status == PROC_UNUSED)
             continue;
 
-        if (proc->status == PROC_UNUSED || proc->status == PROC_LOADING)
-            continue;
-
+        /* Set Remaining Killable Processes as Zombies */
         if (killall_sent)
         {
-            proc_set_zombie(proc->pid); // Set Remaining Killable Processes as Zombies
+            proc_set_zombie(proc->pid);
             continue;
         }
 
-        /* Must be a user process, force to send KILLALL Message */
+        /* Must be a Killable Process, force to send KILLALL Message */
         earth->mmu_switch(proc->pid);
 
         struct proc_request req;
@@ -135,9 +139,15 @@ void special_handle()
         sc->type = SYS_SEND;
 
         proc_set_requesting(proc->pid);
-        proc->mepc = proc_idle;
-
+        proc->mepc = proc_idle; // Once Finished Sending Message, make Idle
         killall_sent++;
+    }
+
+    /* Shell Should only catch CTRL-C When CTRL-C Kills no Processes */
+    if (killall_sent)
+    {
+        printf("^C\n");
+        earth->tty_read_tail(&c);
     }
 }
 
@@ -171,9 +181,9 @@ void proc_wait()
     asm("csrr %0, mie" : "=r"(mie));
     asm("csrw mie, %0" ::"r"(mie & ~(0x88))); // Invert Timer and Software Interrupt Bits
 
-    asm("wfi");
+    asm("wfi"); // Interrupt Signal Resumes Execution at PC + 4
 
-    asm("csrw mie, %0" ::"r"(mie | 0x88));
+    asm("csrw mie, %0" ::"r"(mie | 0x88)); // Enable Timer and Software Interrupt Bits
     external_handle();
 }
 
@@ -196,7 +206,7 @@ static void proc_yield()
         }
 
         if (next_idx == -1)
-            proc_wait();
+            proc_wait(); // Wait for Interrupt
     }
 
     if (curr_status == PROC_RUNNING)
@@ -251,7 +261,7 @@ static int y_recv(struct syscall *sc)
     if (KERNEL_MSG_BUFF->in_use == 0 || KERNEL_MSG_BUFF->receiver != curr_pid)
         return -1;
 
-    KERNEL_MSG_BUFF->in_use = 0;
+    KERNEL_MSG_BUFF->in_use = 0; // Free MSG Buff for Future Sends
 
     memcpy(sc->msg.content, KERNEL_MSG_BUFF->msg, sizeof(sc->msg.content));
     sc->msg.sender = KERNEL_MSG_BUFF->sender;
@@ -262,7 +272,7 @@ static int y_recv(struct syscall *sc)
 static int proc_tty_read(struct syscall *sc)
 {
     char *c;
-    memcpy(&c, sc->msg.content, sizeof(char *));
+    memcpy(&c, sc->msg.content, sizeof(c)); // Read Character into User Space Pointer
 
     return earth->tty_read(c);
 }
@@ -272,8 +282,8 @@ static int proc_tty_write(struct syscall *sc)
     char *msg;
     int len;
 
-    memcpy(&msg, sc->msg.content, sizeof(char *));
-    memcpy(&len, sc->msg.content + sizeof(msg), sizeof(int));
+    memcpy(&msg, sc->msg.content, sizeof(msg));
+    memcpy(&len, sc->msg.content + sizeof(msg), sizeof(len));
     return earth->tty_write(msg, len);
 }
 
@@ -317,7 +327,7 @@ static void syscall_handle()
 
 static void proc_syscall()
 {
-    syscall_ret();
+    syscall_handle();
     proc_yield();
 }
 

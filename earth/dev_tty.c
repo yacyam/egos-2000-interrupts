@@ -72,16 +72,15 @@ int tty_write_kernel(char *msg, int len)
 
 void tty_write_uart()
 {
-    int c, rc = 0;
+    int rc = 0;
 
     while (tx_size > 0)
     {
-        c = (int)tty_write_buf.buf[tx_head];
-        rc = uart_putc(c);
+        rc = uart_putc((int)tty_write_buf.buf[tx_head]);
 
         if (rc == -1)
         {
-            uart_txen();
+            uart_txen(); // Tx Full and Buffer Non-Empty, Enable Interrupts
             break;
         }
 
@@ -90,29 +89,31 @@ void tty_write_uart()
     };
 
     if (rc == 0)
-        uart_txdis();
+        uart_txdis(); // Buffer Empty, Disable Interrupts
 }
 
 void tty_write_buff(char *msg, int len)
 {
+    /* Only Called when Entire Input Fits in Buff */
+    if (len > DEV_BUFF_SIZE - tx_size)
+        return;
+
     for (int i = 0; i < len; i++)
     {
         tty_write_buf.buf[tx_tail] = msg[i];
-        if (tx_size < DEV_BUFF_SIZE)
-        {
-            tx_tail = (tx_tail + 1) % DEV_BUFF_SIZE;
-            tx_size++;
-        }
+        tx_tail = (tx_tail + 1) % DEV_BUFF_SIZE;
     }
+
+    tx_size += len;
 }
 
 int tty_write(char *msg, int len)
 {
     if (len > DEV_BUFF_SIZE)
-        return -2; // Error, Retry with smaller request
+        return -2; // Error, Request will never succeed
 
     if (len > DEV_BUFF_SIZE - tx_size)
-        return -1;
+        return -1; // Failure, Retry after External Interrupt
 
     /* Write Contents into Buffer */
     tty_write_buff(msg, len);
@@ -124,8 +125,7 @@ int tty_write(char *msg, int len)
 
 int tty_read_uart()
 {
-    uart_getc(&c);
-    if (c == -1)
+    if (uart_getc(&c) == -1)
         return -1;
 
     do
@@ -154,7 +154,6 @@ int tty_read(char *ret_val)
 
     *ret_val = (char)tty_read_buf.buf[rx_head];
 
-    tty_read_buf.buf[rx_head] = 0; // Flush Out Read Contents
     rx_head = (rx_head + 1) % DEV_BUFF_SIZE;
     rx_size--;
     return 0;
