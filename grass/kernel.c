@@ -88,7 +88,7 @@ void ctx_entry()
     proc_set[proc_curr_idx].mepc = (void *)mepc;
     proc_set[proc_curr_idx].sp = (void *)sp;
 
-    /* kernel_entry() is either proc_yield() or proc_syscall() */
+    /* kernel_entry() is either proc_yield(), proc_syscall(), or proc_external() */
     kernel_entry();
 
     /* Switch back to the user application stack */
@@ -156,6 +156,7 @@ int external_handle()
     int rc = earth->trap_external();
     int orig_proc_idx = proc_curr_idx;
 
+    /* Keyboard Interrupt */
     if (rc == RET_SPECIAL_CHAR)
         special_handle();
 
@@ -165,7 +166,7 @@ int external_handle()
         {
             proc_curr_idx = i;
             earth->mmu_switch(proc_set[i].pid);
-            syscall_handle();
+            syscall_handle(); // Run Requesting Process' Syscall
         }
     }
 
