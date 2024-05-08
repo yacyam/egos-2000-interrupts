@@ -32,7 +32,7 @@ void uart_init(long baud_rate)
     /* Increase UART0 Write Watermark to 3 */
     REGW(UART0_BASE, UART0_TXCTRL) |= 0x30000;
 
-    /* Enable UART0 Interrupts for Writes and Reads */
+    /* Enable UART0 Interrupts Only for Read */
     REGW(UART0_BASE, UART0_IE) |= 2;
 }
 
