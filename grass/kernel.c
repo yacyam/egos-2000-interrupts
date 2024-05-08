@@ -65,6 +65,7 @@ void intr_entry(int id)
     {
         /* Do not interrupt kernel processes since IO can be stateful */
         earth->timer_reset();
+        earth->tty_user_mode();
         ctx_jump();
     }
 
