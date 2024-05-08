@@ -153,7 +153,7 @@ void special_handle()
 
 int external_handle()
 {
-    int rc = earth->trap_external();
+    int rc = earth->trap_external(); // Handle Device Specific Request
     int orig_proc_idx = proc_curr_idx;
 
     /* Keyboard Interrupt */
